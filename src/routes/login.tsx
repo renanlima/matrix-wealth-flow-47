@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { toast } from "sonner";
+import matrixLogo from "@/assets/matrix-logo.png";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
@@ -43,13 +44,11 @@ function LoginPage() {
       <div className="absolute inset-0 bg-grid-fade pointer-events-none" />
       <Card className="w-full max-w-md relative border-primary/20 bg-card/80 backdrop-blur">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-2 flex items-center gap-3">
-            <img src="/logo.png" alt="" className="h-10 w-10" />
-            <span className="font-mono text-lg font-semibold tracking-wider text-primary text-glow">
-              MATRIX
-            </span>
-          </div>
-          <CardTitle className="text-xl">Matrix Digital Assets</CardTitle>
+          <img
+            src={matrixLogo}
+            alt="Matrix Digital Assets"
+            className="mx-auto mb-3 h-20 w-auto object-contain"
+          />
           <CardDescription>Acesse sua área restrita</CardDescription>
         </CardHeader>
         <CardContent>

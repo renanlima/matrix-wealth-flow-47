@@ -42,7 +42,7 @@ interface ClientInfo {
 }
 
 function ClientDetail() {
-  const { clientId } = useParams({ from: "/admin/clientes/$clientId" });
+  const { clientId } = useParams({ from: "/admin/clientes/$clientId/" });
   const [info, setInfo] = useState<ClientInfo | null>(null);
 
   useEffect(() => {
