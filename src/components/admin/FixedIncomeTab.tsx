@@ -196,9 +196,9 @@ function NewFixedIncomeDialog({ funds, onCreated }: { funds: Fund[]; onCreated: 
       fund_id: form.fund_id,
       product_name: form.product_name,
       asset_symbol: form.asset_symbol.trim().toUpperCase() || null,
-      valor_aplicado_usd: Number(form.valor_aplicado_usd),
+      valor_aplicado_usd: parseUsdInput(form.valor_aplicado_usd),
       taxa_anual_pct: Number(form.taxa_anual_pct),
-      preco_entrada_usd: form.preco_entrada_usd ? Number(form.preco_entrada_usd) : null,
+      preco_entrada_usd: form.preco_entrada_usd ? parseUsdInput(form.preco_entrada_usd) : null,
       data_registro: form.data_registro,
       notes: form.notes || null,
     });
