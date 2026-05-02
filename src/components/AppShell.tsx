@@ -4,6 +4,7 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 import { Button } from "@/components/ui/button";
 import { LogOut, DollarSign } from "lucide-react";
 import { cn } from "@/lib/utils";
+import matrixLogo from "@/assets/matrix-logo.png";
 
 interface NavItem {
   to: string;
@@ -33,16 +34,15 @@ export function AppShell({ navItems, basePath, children, title }: AppShellProps)
     <div className="flex min-h-screen w-full">
       {/* Sidebar */}
       <aside className="hidden md:flex w-60 shrink-0 flex-col border-r border-border/60 bg-sidebar">
-        <div className="flex items-center gap-2 px-5 py-5 border-b border-sidebar-border">
-          <img src="/logo.png" alt="" className="h-8 w-8" />
-          <div className="flex flex-col leading-tight">
-            <span className="font-mono text-sm font-semibold tracking-wider text-primary">
-              MATRIX
-            </span>
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-              {title}
-            </span>
-          </div>
+        <div className="flex flex-col items-center gap-1 px-4 py-4 border-b border-sidebar-border">
+          <img
+            src={matrixLogo}
+            alt="Matrix Digital Assets"
+            className="h-12 w-auto object-contain"
+          />
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            {title}
+          </span>
         </div>
         <nav className="flex-1 space-y-1 p-3">
           {navItems.map((item) => {
@@ -87,8 +87,7 @@ export function AppShell({ navItems, basePath, children, title }: AppShellProps)
       <div className="flex-1 flex flex-col min-w-0">
         <header className="flex items-center justify-between gap-4 border-b border-border/60 bg-background/60 backdrop-blur px-4 md:px-6 py-3">
           <div className="md:hidden flex items-center gap-2">
-            <img src="/logo.png" alt="" className="h-7 w-7" />
-            <span className="font-mono text-sm font-semibold text-primary">MATRIX</span>
+            <img src={matrixLogo} alt="Matrix Digital Assets" className="h-8 w-auto object-contain" />
           </div>
           <div className="flex-1" />
           <Button
