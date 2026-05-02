@@ -455,7 +455,8 @@ function RealizeDialog({ holding, onDone }: { holding: Holding; onDone: () => vo
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [submitting, setSubmitting] = useState(false);
 
-  const total = Number(exitPrice) * Number(holding.quantity);
+  const exitPriceNum = parseUsdInput(exitPrice);
+  const total = exitPriceNum * Number(holding.quantity);
   const cost = Number(holding.entry_price_usd) * Number(holding.quantity);
   const profit = total - cost;
 
