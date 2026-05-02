@@ -255,7 +255,7 @@ function NewFixedIncomeDialog({ funds, onCreated }: { funds: Fund[]; onCreated: 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Preço entrada (opcional)</Label>
-              <Input type="number" step="0.00000001" value={form.preco_entrada_usd} onChange={(e) => setForm({ ...form, preco_entrada_usd: e.target.value })} />
+              <MoneyInput decimals={8} value={form.preco_entrada_usd} onValueChange={(d) => setForm({ ...form, preco_entrada_usd: d })} />
             </div>
             <div className="space-y-1.5">
               <Label>Data de registro *</Label>
