@@ -146,6 +146,7 @@ interface FundRow {
 }
 
 function FundsTab({ clientId }: { clientId: string }) {
+  const navigate = useNavigate();
   const [rows, setRows] = useState<FundRow[]>([]);
   const [open, setOpen] = useState(false);
 
@@ -184,19 +185,32 @@ function FundsTab({ clientId }: { clientId: string }) {
               <TableHead>Início</TableHead>
               <TableHead>Fim</TableHead>
               <TableHead>Taxa perf.</TableHead>
-              <TableHead className="text-right"></TableHead>
+              <TableHead className="text-right w-10"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
-                  Nenhum fundo cadastrado.
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <div className="flex flex-col items-center gap-2">
+                    <p className="text-sm">Nenhum fundo cadastrado.</p>
+                    <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+                      <Plus className="h-3.5 w-3.5 mr-1" /> Criar primeiro fundo
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             )}
             {rows.map((f) => (
-              <TableRow key={f.id}>
+              <ClickableRow
+                key={f.id}
+                onActivate={() =>
+                  navigate({
+                    to: "/admin/clientes/$clientId/fundos/$fundId",
+                    params: { clientId, fundId: f.id },
+                  })
+                }
+              >
                 <TableCell className="font-medium">{f.name}</TableCell>
                 <TableCell>
                   <span
@@ -211,16 +225,9 @@ function FundsTab({ clientId }: { clientId: string }) {
                 <TableCell className="text-xs">{formatDate(f.end_date)}</TableCell>
                 <TableCell className="font-mono text-xs">{f.performance_fee_pct}%</TableCell>
                 <TableCell className="text-right">
-                  <Link
-                    to="/admin/clientes/$clientId/fundos/$fundId"
-                    params={{ clientId, fundId: f.id }}
-                  >
-                    <Button variant="ghost" size="sm">
-                      Abrir
-                    </Button>
-                  </Link>
+                  <span className="text-muted-foreground/60">›</span>
                 </TableCell>
-              </TableRow>
+              </ClickableRow>
             ))}
           </TableBody>
         </Table>
