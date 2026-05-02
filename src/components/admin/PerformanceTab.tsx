@@ -113,28 +113,19 @@ function CloseDialog({ funds, onDone }: { funds: Fund[]; onDone: () => void }) {
   const now = new Date();
   const lastMonth = now.getMonth() === 0 ? 12 : now.getMonth();
   const lastYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
-  const [fundId, setFundId] = useState<string>("");
   const [year, setYear] = useState(String(lastYear));
   const [month, setMonth] = useState(String(lastMonth));
-  const [patrimonioFim, setPatrimonioFim] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fundId) { toast.error("Selecione um fundo"); return; }
-    if (!patrimonioFim) { toast.error("Informe o patrimônio final"); return; }
     setSubmitting(true);
     const { error, data } = await supabase.functions.invoke("close-monthly-performance", {
-      body: {
-        fund_id: fundId,
-        year: Number(year),
-        month: Number(month),
-        patrimonio_fim_usd: Number(patrimonioFim),
-      },
+      body: { year: Number(year), month: Number(month) },
     });
     setSubmitting(false);
     if (error) { toast.error(error.message); return; }
-    toast.success("Fechamento registrado");
+    toast.success("Fechamento processado");
     console.log("close result", data);
     setOpen(false);
     onDone();
@@ -151,19 +142,11 @@ function CloseDialog({ funds, onDone }: { funds: Fund[]; onDone: () => void }) {
         <DialogHeader>
           <DialogTitle>Fechar performance mensal</DialogTitle>
           <DialogDescription>
-            Calcula lucro bruto = patrimônio fim − patrimônio início − alocações + desalocações; aplica déficit anterior e taxa de performance.
+            Processa todos os fundos ativos para o mês selecionado. Calcula lucro bruto, aplica déficit anterior e taxa de performance.
+            Idempotente — se já existir fechamento, é mantido.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-3">
-          <div className="space-y-1.5">
-            <Label>Fundo *</Label>
-            <Select value={fundId} onValueChange={setFundId}>
-              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-              <SelectContent>
-                {funds.map((f) => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Mês *</Label>
@@ -178,10 +161,6 @@ function CloseDialog({ funds, onDone }: { funds: Fund[]; onDone: () => void }) {
               <Label>Ano *</Label>
               <Input type="number" value={year} onChange={(e) => setYear(e.target.value)} required />
             </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Patrimônio fim do mês (USD) *</Label>
-            <Input type="number" step="0.01" value={patrimonioFim} onChange={(e) => setPatrimonioFim(e.target.value)} required />
           </div>
           <DialogFooter>
             <Button type="submit" disabled={submitting} className="glow-cyan">
