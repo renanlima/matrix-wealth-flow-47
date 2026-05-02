@@ -22,12 +22,13 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { MoneyInput, maskUsd } from "@/components/ui/money-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, ChevronLeft, DollarSign, Lock } from "lucide-react";
 import { Money, CryptoQty, Pct } from "@/components/Money";
 import { toast } from "sonner";
-import { formatDate } from "@/lib/format";
+import { formatDate, parseUsdInput } from "@/lib/format";
 
 interface PHRow {
   id: string; year: number; month: number;
