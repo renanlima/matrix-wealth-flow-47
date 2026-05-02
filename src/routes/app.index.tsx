@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,69 +14,78 @@ export const Route = createFileRoute("/app/")({
 
 const COLORS = ["#00D4FF", "#5BE49B", "#A78BFA", "#FFD166", "#FF7AB6", "#7DD3FC", "#FB923C"];
 
+interface ClientDashData {
+  aum: number;
+  cash: number;
+  fundsBreakdown: { name: string; value: number }[];
+  coinsBreakdown: { name: string; value: number; pct24: number | null }[];
+  lastUpdate: string | null;
+}
+
+async function fetchClientDashboard(userId: string): Promise<ClientDashData> {
+  const [{ data: funds }, { data: holdings }, { data: prices }, { data: dep }, { data: wd }, { data: real }] = await Promise.all([
+    supabase.from("funds").select("id, name").eq("client_id", userId),
+    supabase.from("holdings").select("id, coin_symbol, quantity, entry_price_usd, fund_id, status").eq("status", "ativa"),
+    supabase.from("coin_prices").select("symbol, price_usd, percent_change_24h, updated_at"),
+    supabase.from("deposits").select("amount_usd"),
+    supabase.from("withdrawals").select("amount_usd"),
+    supabase.from("realizations").select("total_usd"),
+  ]);
+
+  const priceMap = new Map((prices ?? []).map((p) => [p.symbol.toUpperCase(), p]));
+  const fundMap = new Map((funds ?? []).map((f) => [f.id, f.name]));
+  const fundTotals = new Map<string, number>();
+  const coinTotals = new Map<string, { value: number; pct: number | null }>();
+
+  let aumHoldings = 0;
+  for (const h of holdings ?? []) {
+    const p = priceMap.get(h.coin_symbol.toUpperCase());
+    const cur = p ? Number(p.price_usd) : Number(h.entry_price_usd);
+    const value = Number(h.quantity) * cur;
+    aumHoldings += value;
+    const fname = fundMap.get(h.fund_id) ?? "—";
+    fundTotals.set(fname, (fundTotals.get(fname) ?? 0) + value);
+    const cur2 = coinTotals.get(h.coin_symbol);
+    coinTotals.set(h.coin_symbol, {
+      value: (cur2?.value ?? 0) + value,
+      pct: p?.percent_change_24h ?? null,
+    });
+  }
+
+  const totalDep = (dep ?? []).reduce((s, x) => s + Number(x.amount_usd), 0);
+  const totalWd = (wd ?? []).reduce((s, x) => s + Number(x.amount_usd), 0);
+  const totalReal = (real ?? []).reduce((s, x) => s + Number(x.total_usd), 0);
+  const cashUsd =
+    totalDep -
+    totalWd -
+    (holdings ?? []).reduce((s, h) => s + Number(h.quantity) * Number(h.entry_price_usd), 0) +
+    totalReal;
+
+  return {
+    aum: aumHoldings + cashUsd,
+    cash: cashUsd,
+    fundsBreakdown: [...fundTotals.entries()].map(([name, value]) => ({ name, value })),
+    coinsBreakdown: [...coinTotals.entries()].map(([name, v]) => ({ name, value: v.value, pct24: v.pct })),
+    lastUpdate: (prices ?? []).reduce(
+      (latest, p) => (!latest || p.updated_at > latest ? p.updated_at : latest),
+      null as string | null,
+    ),
+  };
+}
+
 function ClientDashboard() {
   const { user } = useAuth();
-  const [aum, setAum] = useState(0);
-  const [cash, setCash] = useState(0);
-  const [fundsBreakdown, setFundsBreakdown] = useState<{ name: string; value: number }[]>([]);
-  const [coinsBreakdown, setCoinsBreakdown] = useState<{ name: string; value: number; pct24: number | null }[]>([]);
-  const [lastUpdate, setLastUpdate] = useState<string | null>(null);
+  const { data } = useQuery({
+    queryKey: ["client", "dashboard", user?.id],
+    queryFn: () => fetchClientDashboard(user!.id),
+    enabled: !!user,
+  });
 
-  useEffect(() => {
-    if (!user) return;
-    (async () => {
-      const [{ data: funds }, { data: holdings }, { data: prices }, { data: dep }, { data: wd }, { data: real }] = await Promise.all([
-        supabase.from("funds").select("id, name").eq("client_id", user.id),
-        supabase.from("holdings").select("id, coin_symbol, quantity, entry_price_usd, fund_id, status").eq("status", "ativa"),
-        supabase.from("coin_prices").select("symbol, price_usd, percent_change_24h, updated_at"),
-        supabase.from("deposits").select("amount_usd"),
-        supabase.from("withdrawals").select("amount_usd"),
-        supabase.from("realizations").select("total_usd"),
-      ]);
-
-      const priceMap = new Map((prices ?? []).map((p) => [p.symbol.toUpperCase(), p]));
-      const fundMap = new Map((funds ?? []).map((f) => [f.id, f.name]));
-      const fundTotals = new Map<string, number>();
-      const coinTotals = new Map<string, { value: number; pct: number | null }>();
-
-      let aumHoldings = 0;
-      for (const h of holdings ?? []) {
-        const p = priceMap.get(h.coin_symbol.toUpperCase());
-        const cur = p ? Number(p.price_usd) : Number(h.entry_price_usd);
-        const value = Number(h.quantity) * cur;
-        aumHoldings += value;
-        const fname = fundMap.get(h.fund_id) ?? "—";
-        fundTotals.set(fname, (fundTotals.get(fname) ?? 0) + value);
-        const cur2 = coinTotals.get(h.coin_symbol);
-        coinTotals.set(h.coin_symbol, {
-          value: (cur2?.value ?? 0) + value,
-          pct: p?.percent_change_24h ?? null,
-        });
-      }
-
-      const totalDep = (dep ?? []).reduce((s, x) => s + Number(x.amount_usd), 0);
-      const totalWd = (wd ?? []).reduce((s, x) => s + Number(x.amount_usd), 0);
-      const totalReal = (real ?? []).reduce((s, x) => s + Number(x.total_usd), 0);
-      const cashUsd =
-        totalDep -
-        totalWd -
-        (holdings ?? []).reduce((s, h) => s + Number(h.quantity) * Number(h.entry_price_usd), 0) +
-        totalReal;
-
-      setAum(aumHoldings + cashUsd);
-      setCash(cashUsd);
-      setFundsBreakdown([...fundTotals.entries()].map(([name, value]) => ({ name, value })));
-      setCoinsBreakdown(
-        [...coinTotals.entries()].map(([name, v]) => ({ name, value: v.value, pct24: v.pct })),
-      );
-      setLastUpdate(
-        (prices ?? []).reduce(
-          (latest, p) => (!latest || p.updated_at > latest ? p.updated_at : latest),
-          null as string | null,
-        ),
-      );
-    })();
-  }, [user]);
+  const aum = data?.aum ?? 0;
+  const cash = data?.cash ?? 0;
+  const fundsBreakdown = data?.fundsBreakdown ?? [];
+  const coinsBreakdown = data?.coinsBreakdown ?? [];
+  const lastUpdate = data?.lastUpdate ?? null;
 
   return (
     <div className="space-y-6">
