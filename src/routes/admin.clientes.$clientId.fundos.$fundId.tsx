@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -27,6 +28,16 @@ import { Plus, ChevronLeft, DollarSign, Lock } from "lucide-react";
 import { Money, CryptoQty, Pct } from "@/components/Money";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/format";
+
+interface PHRow {
+  id: string; year: number; month: number;
+  patrimonio_inicio_usd: number; patrimonio_fim_usd: number;
+  alocacoes_usd: number; desalocacoes_usd: number;
+  lucro_bruto_usd: number; base_calculo_usd: number;
+  taxa_aplicada_usd: number; novo_deficit_usd: number;
+  deficit_anterior_usd: number;
+}
+const MONTHS_PT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
 export const Route = createFileRoute("/admin/clientes/$clientId/fundos/$fundId")({
   component: FundDetail,
@@ -139,110 +150,195 @@ function FundDetail() {
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Posições</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Moeda</TableHead>
-                <TableHead className="text-right">Qtd</TableHead>
-                <TableHead className="text-right">Preço entrada</TableHead>
-                <TableHead className="text-right">Preço atual</TableHead>
-                <TableHead className="text-right">P&L</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {holdings.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
-                    Sem posições.
-                  </TableCell>
-                </TableRow>
-              )}
-              {holdings.map((h) => {
-                const cur = prices.get(h.coin_symbol.toUpperCase()) ?? 0;
-                const cost = Number(h.quantity) * Number(h.entry_price_usd);
-                const market = Number(h.quantity) * cur;
-                const pnlPct = cost > 0 ? ((market - cost) / cost) * 100 : 0;
-                return (
-                  <TableRow key={h.id}>
-                    <TableCell>
-                      <div className="font-mono font-semibold">{h.coin_symbol}</div>
-                      <div className="text-xs text-muted-foreground">{h.coin_name ?? "—"}</div>
-                    </TableCell>
-                    <TableCell className="text-right"><CryptoQty qty={h.quantity} /></TableCell>
-                    <TableCell className="text-right"><Money usd={h.entry_price_usd} /></TableCell>
-                    <TableCell className="text-right">
-                      {cur > 0 ? <Money usd={cur} /> : <span className="text-muted-foreground text-xs">—</span>}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {h.status === "ativa" && cur > 0 ? <Pct value={pnlPct} /> : "—"}
-                    </TableCell>
-                    <TableCell>
-                      <span className={`text-xs font-mono uppercase ${h.status === "ativa" ? "text-success" : "text-muted-foreground"}`}>
-                        {h.status}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {h.status === "ativa" && (
-                        <RealizeDialog holding={h} onDone={load} />
-                      )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="positions">
+        <TabsList>
+          <TabsTrigger value="positions">Posições</TabsTrigger>
+          <TabsTrigger value="realizations">Realizações</TabsTrigger>
+          <TabsTrigger value="history">Histórico mensal</TabsTrigger>
+        </TabsList>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Realizações (vendas)</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Posição</TableHead>
-                <TableHead>Data</TableHead>
-                <TableHead className="text-right">Preço saída</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead className="text-right">Lucro</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {realizations.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
-                    Nenhuma realização ainda.
-                  </TableCell>
-                </TableRow>
-              )}
-              {realizations.map((r) => {
-                const h = holdings.find((x) => x.id === r.holding_id);
-                return (
-                  <TableRow key={r.id}>
-                    <TableCell className="font-mono">{h?.coin_symbol ?? "—"}</TableCell>
-                    <TableCell className="text-xs">{formatDate(r.exit_date)}</TableCell>
-                    <TableCell className="text-right"><Money usd={r.exit_price_usd} /></TableCell>
-                    <TableCell className="text-right"><Money usd={r.total_usd} /></TableCell>
-                    <TableCell className={`text-right font-mono ${r.profit_usd >= 0 ? "text-success" : "text-destructive"}`}>
-                      <Money usd={r.profit_usd} />
-                    </TableCell>
+        <TabsContent value="positions" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Posições</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Moeda</TableHead>
+                    <TableHead className="text-right">Qtd</TableHead>
+                    <TableHead className="text-right">Preço entrada</TableHead>
+                    <TableHead className="text-right">Preço atual</TableHead>
+                    <TableHead className="text-right">P&L</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right"></TableHead>
                   </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                </TableHeader>
+                <TableBody>
+                  {holdings.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
+                        Sem posições.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {holdings.map((h) => {
+                    const cur = prices.get(h.coin_symbol.toUpperCase()) ?? 0;
+                    const cost = Number(h.quantity) * Number(h.entry_price_usd);
+                    const market = Number(h.quantity) * cur;
+                    const pnlPct = cost > 0 ? ((market - cost) / cost) * 100 : 0;
+                    return (
+                      <TableRow key={h.id}>
+                        <TableCell>
+                          <div className="font-mono font-semibold">{h.coin_symbol}</div>
+                          <div className="text-xs text-muted-foreground">{h.coin_name ?? "—"}</div>
+                        </TableCell>
+                        <TableCell className="text-right"><CryptoQty qty={h.quantity} /></TableCell>
+                        <TableCell className="text-right"><Money usd={h.entry_price_usd} /></TableCell>
+                        <TableCell className="text-right">
+                          {cur > 0 ? <Money usd={cur} /> : <span className="text-muted-foreground text-xs">—</span>}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {h.status === "ativa" && cur > 0 ? <Pct value={pnlPct} /> : "—"}
+                        </TableCell>
+                        <TableCell>
+                          <span className={`text-xs font-mono uppercase ${h.status === "ativa" ? "text-success" : "text-muted-foreground"}`}>
+                            {h.status}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {h.status === "ativa" && (
+                            <RealizeDialog holding={h} onDone={load} />
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="realizations" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Realizações (vendas)</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Posição</TableHead>
+                    <TableHead>Data</TableHead>
+                    <TableHead className="text-right">Preço saída</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                    <TableHead className="text-right">Lucro</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {realizations.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+                        Nenhuma realização ainda.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {realizations.map((r) => {
+                    const h = holdings.find((x) => x.id === r.holding_id);
+                    return (
+                      <TableRow key={r.id}>
+                        <TableCell className="font-mono">{h?.coin_symbol ?? "—"}</TableCell>
+                        <TableCell className="text-xs">{formatDate(r.exit_date)}</TableCell>
+                        <TableCell className="text-right"><Money usd={r.exit_price_usd} /></TableCell>
+                        <TableCell className="text-right"><Money usd={r.total_usd} /></TableCell>
+                        <TableCell className={`text-right font-mono ${r.profit_usd >= 0 ? "text-success" : "text-destructive"}`}>
+                          <Money usd={r.profit_usd} />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="history" className="mt-4">
+          <FundHistoryCard fundId={fundId} />
+        </TabsContent>
+      </Tabs>
     </div>
+  );
+}
+
+function FundHistoryCard({ fundId }: { fundId: string }) {
+  const [rows, setRows] = useState<PHRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const { data } = await supabase
+        .from("performance_history")
+        .select("*")
+        .eq("fund_id", fundId)
+        .order("year", { ascending: false })
+        .order("month", { ascending: false });
+      setRows((data as PHRow[]) ?? []);
+      setLoading(false);
+    })();
+  }, [fundId]);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Histórico mensal — visão admin (com taxas)</CardTitle>
+      </CardHeader>
+      <CardContent className="p-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Período</TableHead>
+              <TableHead className="text-right">Início</TableHead>
+              <TableHead className="text-right">Fim</TableHead>
+              <TableHead className="text-right">Aloc.</TableHead>
+              <TableHead className="text-right">Desaloc.</TableHead>
+              <TableHead className="text-right">Lucro bruto</TableHead>
+              <TableHead className="text-right">Déficit ant.</TableHead>
+              <TableHead className="text-right">Base</TableHead>
+              <TableHead className="text-right">Taxa</TableHead>
+              <TableHead className="text-right">Novo déficit</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading && <TableRow><TableCell colSpan={10} className="py-6 text-center text-muted-foreground">Carregando...</TableCell></TableRow>}
+            {!loading && rows.length === 0 && <TableRow><TableCell colSpan={10} className="py-6 text-center text-muted-foreground">Sem fechamentos.</TableCell></TableRow>}
+            {rows.map((r) => (
+              <TableRow key={r.id}>
+                <TableCell className="font-mono text-xs">{MONTHS_PT[r.month - 1]}/{r.year}</TableCell>
+                <TableCell className="text-right"><Money usd={Number(r.patrimonio_inicio_usd)} /></TableCell>
+                <TableCell className="text-right"><Money usd={Number(r.patrimonio_fim_usd)} /></TableCell>
+                <TableCell className="text-right text-xs"><Money usd={Number(r.alocacoes_usd)} /></TableCell>
+                <TableCell className="text-right text-xs"><Money usd={Number(r.desalocacoes_usd)} /></TableCell>
+                <TableCell className={`text-right font-mono ${Number(r.lucro_bruto_usd) >= 0 ? "text-success" : "text-destructive"}`}>
+                  <Money usd={Number(r.lucro_bruto_usd)} />
+                </TableCell>
+                <TableCell className="text-right text-xs text-destructive">
+                  {Number(r.deficit_anterior_usd) < 0 ? <Money usd={Number(r.deficit_anterior_usd)} /> : "—"}
+                </TableCell>
+                <TableCell className="text-right text-xs"><Money usd={Number(r.base_calculo_usd)} /></TableCell>
+                <TableCell className="text-right text-primary"><Money usd={Number(r.taxa_aplicada_usd)} /></TableCell>
+                <TableCell className="text-right text-xs">
+                  {Number(r.novo_deficit_usd) < 0 ? <span className="text-destructive"><Money usd={Number(r.novo_deficit_usd)} /></span> : "—"}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
   );
 }
 

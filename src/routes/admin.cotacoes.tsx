@@ -31,7 +31,9 @@ interface Price {
 function PricesAdmin() {
   const [prices, setPrices] = useState<Price[]>([]);
   const [fxRate, setFxRate] = useState<{ rate: number; updated_at: string } | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
+  const [loadingCoins, setLoadingCoins] = useState(false);
+  const [loadingFx, setLoadingFx] = useState(false);
+  const [loadingFi, setLoadingFi] = useState(false);
 
   const load = useCallback(async () => {
     const [{ data: p }, { data: fx }] = await Promise.all([
@@ -46,32 +48,53 @@ function PricesAdmin() {
     load();
   }, [load]);
 
-  const refresh = async () => {
-    setRefreshing(true);
-    const [coins, fx] = await Promise.all([
-      supabase.functions.invoke("update-coin-prices"),
-      supabase.functions.invoke("update-fx-rates"),
-    ]);
-    setRefreshing(false);
-    if (coins.error) toast.error("Cotações: " + coins.error.message);
-    if (fx.error) toast.error("Câmbio: " + fx.error.message);
-    if (!coins.error && !fx.error) toast.success("Cotações atualizadas");
+  const refreshCoins = async () => {
+    setLoadingCoins(true);
+    const { error } = await supabase.functions.invoke("update-coin-prices");
+    setLoadingCoins(false);
+    if (error) toast.error("Cripto: " + error.message);
+    else toast.success("Cotações de cripto atualizadas");
     load();
+  };
+  const refreshFx = async () => {
+    setLoadingFx(true);
+    const { error } = await supabase.functions.invoke("update-fx-rates");
+    setLoadingFx(false);
+    if (error) toast.error("Câmbio: " + error.message);
+    else toast.success("Câmbio atualizado");
+    load();
+  };
+  const refreshFi = async () => {
+    setLoadingFi(true);
+    const { error } = await supabase.functions.invoke("update-fixed-income-prices");
+    setLoadingFi(false);
+    if (error) toast.error("Rend. fixos: " + error.message);
+    else toast.success("Rendimentos alternativos atualizados");
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">Cotações</h1>
           <p className="text-sm text-muted-foreground">
             Cache de preços e câmbio · Atualização automática diária às 10:00 UTC.
           </p>
         </div>
-        <Button onClick={refresh} disabled={refreshing} className="glow-cyan">
-          {refreshing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
-          Atualizar agora
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={refreshCoins} disabled={loadingCoins} size="sm" variant="outline">
+            {loadingCoins ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
+            Cripto
+          </Button>
+          <Button onClick={refreshFx} disabled={loadingFx} size="sm" variant="outline">
+            {loadingFx ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
+            Câmbio USD/BRL
+          </Button>
+          <Button onClick={refreshFi} disabled={loadingFi} size="sm" className="glow-cyan">
+            {loadingFi ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
+            Rend. Alternativos
+          </Button>
+        </div>
       </div>
 
       <Card className="border-primary/20">
