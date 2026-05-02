@@ -29,7 +29,7 @@ import { Plus, ChevronLeft, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/format";
 
-export const Route = createFileRoute("/admin/clientes/$clientId")({
+export const Route = createFileRoute("/admin/clientes/$clientId/")({
   component: ClientDetail,
 });
 
