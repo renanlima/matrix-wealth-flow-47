@@ -34,6 +34,8 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 import { OnboardingGuide } from "@/components/admin/OnboardingGuide";
+import { useDemo } from "@/contexts/DemoContext";
+import { getDemoStats } from "@/lib/demo-data";
 
 export const Route = createFileRoute("/admin/")({
   component: AdminDashboard,
@@ -265,9 +267,10 @@ async function fetchAdminStats(): Promise<Stats> {
 
 function AdminDashboard() {
   const navigate = useNavigate();
+  const { demo, seed } = useDemo();
   const { data: stats, isLoading } = useQuery({
-    queryKey: ["admin", "stats", "v2"],
-    queryFn: fetchAdminStats,
+    queryKey: ["admin", "stats", "v2", { demo, seed }],
+    queryFn: async () => (demo ? getDemoStats(seed) : await fetchAdminStats()),
     staleTime: 60_000,
   });
 
