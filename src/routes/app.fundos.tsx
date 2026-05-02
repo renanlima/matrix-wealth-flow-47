@@ -41,13 +41,45 @@ function ClientFunds() {
   const funds = data?.funds ?? [];
   const holdings = data?.holdings ?? [];
   const prices = data?.prices ?? new Map<string, number>();
+  const [showClosed, setShowClosed] = useState(false);
+
+  // Aggregate totals across all active positions
+  const totals = useMemo(() => {
+    const active = holdings.filter((h) => h.status === "ativa");
+    const cost = active.reduce((s, h) => s + Number(h.quantity) * Number(h.entry_price_usd), 0);
+    const market = active.reduce((s, h) => {
+      const cur = prices.get(h.coin_symbol.toUpperCase()) ?? 0;
+      return s + Number(h.quantity) * cur;
+    }, 0);
+    return { cost, market, pnl: market - cost, pct: cost > 0 ? ((market - cost) / cost) * 100 : 0 };
+  }, [holdings, prices]);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Meus fundos</h1>
-        <p className="text-sm text-muted-foreground">Posições e rentabilidade por fundo.</p>
+      <div className="flex items-end justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Meus fundos</h1>
+          <p className="text-sm text-muted-foreground">Posições e rentabilidade por fundo.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Switch id="show-closed" checked={showClosed} onCheckedChange={setShowClosed} />
+          <Label htmlFor="show-closed" className="text-xs text-muted-foreground cursor-pointer">
+            Mostrar encerradas
+          </Label>
+        </div>
       </div>
+
+      {funds.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <SummaryCard label="Patrimônio (mercado)" value={<Money usd={totals.market} className="text-lg text-primary text-glow" />} />
+          <SummaryCard label="Custo investido" value={<Money usd={totals.cost} className="text-lg" />} />
+          <SummaryCard
+            label="P&L não realizado"
+            value={<Money usd={totals.pnl} className={cn("text-lg", totals.pnl >= 0 ? "text-success" : "text-destructive")} />}
+          />
+          <SummaryCard label="Variação" value={<Pct value={totals.pct} className="text-lg" />} />
+        </div>
+      )}
 
       {funds.length === 0 && (
         <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">Você ainda não tem fundos cadastrados.</CardContent></Card>
