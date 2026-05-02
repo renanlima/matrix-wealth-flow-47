@@ -297,6 +297,20 @@ function AdminDashboard() {
         </div>
       </div>
 
+      {s && (
+        <OnboardingGuide
+          state={{
+            hasClient: s.clientCount > 0,
+            hasFund: !!s.firstFundId,
+            hasDeposit: s.hasDeposit,
+            hasHolding: s.activeHoldings > 0,
+            pricesFresh: s.pricesFresh,
+            firstClientId: s.firstClientId,
+            firstFundId: s.firstFundId,
+          }}
+        />
+      )}
+
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
