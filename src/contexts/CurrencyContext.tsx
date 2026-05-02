@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 export type Currency = "USD" | "BRL";
 
@@ -30,7 +31,10 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
 
   const toggle = () => setCurrency(currency === "USD" ? "BRL" : "USD");
 
+  const { user } = useAuth();
+
   useEffect(() => {
+    if (!user) return;
     let mounted = true;
     supabase
       .from("fx_rates")
@@ -45,7 +49,7 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [user]);
 
   return (
     <CurrencyContext.Provider value={{ currency, setCurrency, toggle, brlRate, rateUpdatedAt }}>
