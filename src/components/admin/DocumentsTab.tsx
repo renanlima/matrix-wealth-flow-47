@@ -272,7 +272,7 @@ function NewReceiptDialog({ clientId, onCreated }: { clientId: string; onCreated
         <form onSubmit={submit} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5"><Label>Data</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>Valor (USD)</Label><Input type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>Valor (USD)</Label><MoneyInput decimals={2} value={amount} onValueChange={(d) => setAmount(d)} /></div>
           </div>
           <div className="space-y-1.5"><Label>Observações</Label><Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} /></div>
           <div className="space-y-1.5"><Label>Arquivo *</Label><Input type="file" accept="application/pdf,image/jpeg,image/png" onChange={(e) => setFile(e.target.files?.[0] ?? null)} required /></div>
