@@ -17,7 +17,7 @@ import {
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Money, Pct } from "@/components/Money";
-import { formatDate } from "@/lib/format";
+import { formatDate, parseUsdInput } from "@/lib/format";
 
 interface Fund { id: string; name: string; status: string; }
 interface FixedIncomeRow {
