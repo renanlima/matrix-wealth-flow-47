@@ -121,18 +121,7 @@ function ClientDetail() {
   );
 }
 
-function ComingSoon({ label }: { label: string }) {
-  return (
-    <Card className="border-dashed">
-      <CardContent className="py-12 text-center text-sm text-muted-foreground">
-        <span className="font-mono uppercase text-xs tracking-wider text-primary/70">
-          Em breve
-        </span>
-        <div className="mt-2">{label} — em desenvolvimento.</div>
-      </CardContent>
-    </Card>
-  );
-}
+
 
 // ============= FUNDS TAB =============
 interface FundRow {
