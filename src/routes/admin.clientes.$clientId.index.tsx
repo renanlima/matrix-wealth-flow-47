@@ -429,7 +429,12 @@ function CashTab({ clientId }: { clientId: string }) {
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{e.notes ?? "—"}</TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" onClick={() => remove(e)}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Remover lançamento"
+                      onClick={() => setPendingDelete(e)}
+                    >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </TableCell>
