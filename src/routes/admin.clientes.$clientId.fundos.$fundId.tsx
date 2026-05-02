@@ -419,11 +419,10 @@ function NewHoldingDialog({ fundId, onCreated }: { fundId: string; onCreated: ()
             </div>
             <div className="space-y-1.5">
               <Label>Preço entrada (USD) *</Label>
-              <Input
-                type="number"
-                step="0.00000001"
+              <MoneyInput
+                decimals={8}
                 value={form.entry_price_usd}
-                onChange={(e) => setForm({ ...form, entry_price_usd: e.target.value })}
+                onValueChange={(display) => setForm({ ...form, entry_price_usd: display })}
                 required
               />
             </div>
