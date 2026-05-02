@@ -361,17 +361,9 @@ function NewHoldingDialog({ fundId, onCreated }: { fundId: string; onCreated: ()
     const { error } = await supabase.from("holdings").insert({
       fund_id: fundId,
       coin_symbol: form.coin_symbol.toUpperCase(),
-      // entry_price_usd uses MoneyInput (masked); parse below
-    } as never).select();
-    // re-do insert with parsed numeric (handled below)
-    void 0;
-    const _unused = null;
-    // NOTE: replaced just below
-    });
-    return;
       coin_name: form.coin_name || null,
       quantity: Number(form.quantity),
-      entry_price_usd: Number(form.entry_price_usd),
+      entry_price_usd: parseUsdInput(form.entry_price_usd),
       purchase_date: form.purchase_date,
       notes: form.notes || null,
     });
