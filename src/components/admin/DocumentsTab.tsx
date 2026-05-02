@@ -253,7 +253,7 @@ function NewReceiptDialog({ clientId, onCreated }: { clientId: string; onCreated
         client_id: clientId,
         file_path: up.path,
         receipt_date: date || null,
-        amount_usd: amount ? Number(amount) : null,
+        amount_usd: amount ? parseUsdInput(amount) : null,
         notes: notes || null,
       });
       if (error) throw error;
