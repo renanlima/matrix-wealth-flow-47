@@ -507,11 +507,10 @@ function RealizeDialog({ holding, onDone }: { holding: Holding; onDone: () => vo
         <form onSubmit={submit} className="space-y-3">
           <div className="space-y-1.5">
             <Label>Preço de saída (USD) *</Label>
-            <Input
-              type="number"
-              step="0.00000001"
+            <MoneyInput
+              decimals={8}
               value={exitPrice}
-              onChange={(e) => setExitPrice(e.target.value)}
+              onValueChange={(display) => setExitPrice(display)}
               required
             />
           </div>
