@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,44 +39,36 @@ interface ClientRow {
   created_at: string;
 }
 
+async function fetchClients(): Promise<ClientRow[]> {
+  const { data: clients } = await supabase
+    .from("clients")
+    .select("id, phone, created_at")
+    .order("created_at", { ascending: false });
+  if (!clients) return [];
+  const ids = clients.map((c) => c.id);
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, full_name, email")
+    .in("id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]);
+  const profMap = new Map(profiles?.map((p) => [p.id, p]));
+  return clients.map((c) => ({
+    id: c.id,
+    phone: c.phone,
+    created_at: c.created_at,
+    full_name: profMap.get(c.id)?.full_name ?? null,
+    email: profMap.get(c.id)?.email ?? null,
+  }));
+}
+
 function ClientList() {
-  const [rows, setRows] = useState<ClientRow[]>([]);
-  const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
-
-  const load = async () => {
-    setLoading(true);
-    // join profiles via two queries (fk relationship view also possible)
-    const { data: clients } = await supabase
-      .from("clients")
-      .select("id, phone, created_at")
-      .order("created_at", { ascending: false });
-    if (!clients) {
-      setRows([]);
-      setLoading(false);
-      return;
-    }
-    const ids = clients.map((c) => c.id);
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, full_name, email")
-      .in("id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]);
-    const profMap = new Map(profiles?.map((p) => [p.id, p]));
-    setRows(
-      clients.map((c) => ({
-        id: c.id,
-        phone: c.phone,
-        created_at: c.created_at,
-        full_name: profMap.get(c.id)?.full_name ?? null,
-        email: profMap.get(c.id)?.email ?? null,
-      })),
-    );
-    setLoading(false);
+  const { data: rows = [], isLoading: loading, refetch } = useQuery({
+    queryKey: ["admin", "clients"],
+    queryFn: fetchClients,
+  });
+  const load = () => {
+    refetch();
   };
-
-  useEffect(() => {
-    load();
-  }, []);
 
   return (
     <div className="space-y-6">
