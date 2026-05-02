@@ -24,6 +24,7 @@ import { Route as AppFundosRouteImport } from './routes/app.fundos'
 import { Route as AppDocumentosRouteImport } from './routes/app.documentos'
 import { Route as AdminMuralRouteImport } from './routes/admin.mural'
 import { Route as AdminCotacoesRouteImport } from './routes/admin.cotacoes'
+import { Route as AdminConfiguracoesRouteImport } from './routes/admin.configuracoes'
 import { Route as AdminClientesIndexRouteImport } from './routes/admin.clientes.index'
 import { Route as AdminClientesClientIdIndexRouteImport } from './routes/admin.clientes.$clientId.index'
 import { Route as AdminClientesClientIdFundosFundIdRouteImport } from './routes/admin.clientes.$clientId.fundos.$fundId'
@@ -103,6 +104,11 @@ const AdminCotacoesRoute = AdminCotacoesRouteImport.update({
   path: '/cotacoes',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminConfiguracoesRoute = AdminConfiguracoesRouteImport.update({
+  id: '/configuracoes',
+  path: '/configuracoes',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminClientesIndexRoute = AdminClientesIndexRouteImport.update({
   id: '/clientes/',
   path: '/clientes/',
@@ -126,6 +132,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteWithChildren
   '/app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
+  '/admin/configuracoes': typeof AdminConfiguracoesRoute
   '/admin/cotacoes': typeof AdminCotacoesRoute
   '/admin/mural': typeof AdminMuralRoute
   '/app/documentos': typeof AppDocumentosRoute
@@ -144,6 +151,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/admin/configuracoes': typeof AdminConfiguracoesRoute
   '/admin/cotacoes': typeof AdminCotacoesRoute
   '/admin/mural': typeof AdminMuralRoute
   '/app/documentos': typeof AppDocumentosRoute
@@ -165,6 +173,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteWithChildren
   '/app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
+  '/admin/configuracoes': typeof AdminConfiguracoesRoute
   '/admin/cotacoes': typeof AdminCotacoesRoute
   '/admin/mural': typeof AdminMuralRoute
   '/app/documentos': typeof AppDocumentosRoute
@@ -187,6 +196,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/app'
     | '/login'
+    | '/admin/configuracoes'
     | '/admin/cotacoes'
     | '/admin/mural'
     | '/app/documentos'
@@ -205,6 +215,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/admin/configuracoes'
     | '/admin/cotacoes'
     | '/admin/mural'
     | '/app/documentos'
@@ -225,6 +236,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/app'
     | '/login'
+    | '/admin/configuracoes'
     | '/admin/cotacoes'
     | '/admin/mural'
     | '/app/documentos'
@@ -355,6 +367,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminCotacoesRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/configuracoes': {
+      id: '/admin/configuracoes'
+      path: '/configuracoes'
+      fullPath: '/admin/configuracoes'
+      preLoaderRoute: typeof AdminConfiguracoesRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/clientes/': {
       id: '/admin/clientes/'
       path: '/clientes'
@@ -380,6 +399,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AdminRouteChildren {
+  AdminConfiguracoesRoute: typeof AdminConfiguracoesRoute
   AdminCotacoesRoute: typeof AdminCotacoesRoute
   AdminMuralRoute: typeof AdminMuralRoute
   AdminIndexRoute: typeof AdminIndexRoute
@@ -389,6 +409,7 @@ interface AdminRouteChildren {
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminConfiguracoesRoute: AdminConfiguracoesRoute,
   AdminCotacoesRoute: AdminCotacoesRoute,
   AdminMuralRoute: AdminMuralRoute,
   AdminIndexRoute: AdminIndexRoute,
