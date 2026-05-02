@@ -14,6 +14,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/ui/money-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -27,7 +28,7 @@ import {
 import { Money } from "@/components/Money";
 import { Plus, ChevronLeft, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { formatDate } from "@/lib/format";
+import { formatDate, parseUsdInput } from "@/lib/format";
 import { FixedIncomeTab } from "@/components/admin/FixedIncomeTab";
 import { FuturesTab } from "@/components/admin/FuturesTab";
 import { DocumentsTab } from "@/components/admin/DocumentsTab";
@@ -442,7 +443,7 @@ function CashDialog({
     const dateField = type === "deposit" ? "deposit_date" : "withdraw_date";
     const { error } = await supabase.from(tbl).insert({
       client_id: clientId,
-      amount_usd: Number(amount),
+      amount_usd: parseUsdInput(amount),
       [dateField]: date,
       notes: notes || null,
     } as any);
@@ -473,11 +474,10 @@ function CashDialog({
         <form onSubmit={submit} className="space-y-3">
           <div className="space-y-1.5">
             <Label>Valor (USD) *</Label>
-            <Input
-              type="number"
-              step="0.01"
+            <MoneyInput
+              decimals={2}
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              onValueChange={(display) => setAmount(display)}
               required
             />
           </div>

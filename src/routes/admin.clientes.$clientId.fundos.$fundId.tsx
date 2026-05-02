@@ -22,12 +22,13 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/ui/money-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, ChevronLeft, DollarSign, Lock } from "lucide-react";
 import { Money, CryptoQty, Pct } from "@/components/Money";
 import { toast } from "sonner";
-import { formatDate } from "@/lib/format";
+import { formatDate, parseUsdInput } from "@/lib/format";
 
 interface PHRow {
   id: string; year: number; month: number;
@@ -362,7 +363,7 @@ function NewHoldingDialog({ fundId, onCreated }: { fundId: string; onCreated: ()
       coin_symbol: form.coin_symbol.toUpperCase(),
       coin_name: form.coin_name || null,
       quantity: Number(form.quantity),
-      entry_price_usd: Number(form.entry_price_usd),
+      entry_price_usd: parseUsdInput(form.entry_price_usd),
       purchase_date: form.purchase_date,
       notes: form.notes || null,
     });
@@ -418,11 +419,10 @@ function NewHoldingDialog({ fundId, onCreated }: { fundId: string; onCreated: ()
             </div>
             <div className="space-y-1.5">
               <Label>Preço entrada (USD) *</Label>
-              <Input
-                type="number"
-                step="0.00000001"
+              <MoneyInput
+                decimals={8}
                 value={form.entry_price_usd}
-                onChange={(e) => setForm({ ...form, entry_price_usd: e.target.value })}
+                onValueChange={(display) => setForm({ ...form, entry_price_usd: display })}
                 required
               />
             </div>
@@ -455,7 +455,8 @@ function RealizeDialog({ holding, onDone }: { holding: Holding; onDone: () => vo
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [submitting, setSubmitting] = useState(false);
 
-  const total = Number(exitPrice) * Number(holding.quantity);
+  const exitPriceNum = parseUsdInput(exitPrice);
+  const total = exitPriceNum * Number(holding.quantity);
   const cost = Number(holding.entry_price_usd) * Number(holding.quantity);
   const profit = total - cost;
 
@@ -464,7 +465,7 @@ function RealizeDialog({ holding, onDone }: { holding: Holding; onDone: () => vo
     setSubmitting(true);
     const { error: rErr } = await supabase.from("realizations").insert({
       holding_id: holding.id,
-      exit_price_usd: Number(exitPrice),
+      exit_price_usd: exitPriceNum,
       exit_date: date,
       total_usd: total,
       profit_usd: profit,
@@ -506,11 +507,10 @@ function RealizeDialog({ holding, onDone }: { holding: Holding; onDone: () => vo
         <form onSubmit={submit} className="space-y-3">
           <div className="space-y-1.5">
             <Label>Preço de saída (USD) *</Label>
-            <Input
-              type="number"
-              step="0.00000001"
+            <MoneyInput
+              decimals={8}
               value={exitPrice}
-              onChange={(e) => setExitPrice(e.target.value)}
+              onValueChange={(display) => setExitPrice(display)}
               required
             />
           </div>

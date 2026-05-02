@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/ui/money-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -16,7 +17,7 @@ import {
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Money, Pct } from "@/components/Money";
-import { formatDate } from "@/lib/format";
+import { formatDate, parseUsdInput } from "@/lib/format";
 
 interface Fund { id: string; name: string; status: string; }
 interface FixedIncomeRow {
@@ -195,9 +196,9 @@ function NewFixedIncomeDialog({ funds, onCreated }: { funds: Fund[]; onCreated: 
       fund_id: form.fund_id,
       product_name: form.product_name,
       asset_symbol: form.asset_symbol.trim().toUpperCase() || null,
-      valor_aplicado_usd: Number(form.valor_aplicado_usd),
+      valor_aplicado_usd: parseUsdInput(form.valor_aplicado_usd),
       taxa_anual_pct: Number(form.taxa_anual_pct),
-      preco_entrada_usd: form.preco_entrada_usd ? Number(form.preco_entrada_usd) : null,
+      preco_entrada_usd: form.preco_entrada_usd ? parseUsdInput(form.preco_entrada_usd) : null,
       data_registro: form.data_registro,
       notes: form.notes || null,
     });
@@ -244,7 +245,7 @@ function NewFixedIncomeDialog({ funds, onCreated }: { funds: Fund[]; onCreated: 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Valor aplicado USD *</Label>
-              <Input type="number" step="0.01" value={form.valor_aplicado_usd} onChange={(e) => setForm({ ...form, valor_aplicado_usd: e.target.value })} required />
+              <MoneyInput decimals={2} value={form.valor_aplicado_usd} onValueChange={(d) => setForm({ ...form, valor_aplicado_usd: d })} required />
             </div>
             <div className="space-y-1.5">
               <Label>Taxa anual (%) *</Label>
@@ -254,7 +255,7 @@ function NewFixedIncomeDialog({ funds, onCreated }: { funds: Fund[]; onCreated: 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Preço entrada (opcional)</Label>
-              <Input type="number" step="0.00000001" value={form.preco_entrada_usd} onChange={(e) => setForm({ ...form, preco_entrada_usd: e.target.value })} />
+              <MoneyInput decimals={8} value={form.preco_entrada_usd} onValueChange={(d) => setForm({ ...form, preco_entrada_usd: d })} />
             </div>
             <div className="space-y-1.5">
               <Label>Data de registro *</Label>

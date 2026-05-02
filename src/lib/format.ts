@@ -19,6 +19,13 @@ export function formatUSD(value: number | null | undefined): string {
   return usdFmt.format(value);
 }
 
+/** Parses a USD-masked input string ("1,234.56") into a number. Empty → 0. */
+export function parseUsdInput(value: string | null | undefined): number {
+  if (!value) return 0;
+  const n = Number(String(value).replace(/,/g, ""));
+  return isNaN(n) ? 0 : n;
+}
+
 export function formatBRL(value: number | null | undefined): string {
   if (value == null || isNaN(value)) return "R$ 0,00";
   return brlFmt.format(value);
