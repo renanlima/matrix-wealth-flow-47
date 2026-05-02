@@ -200,6 +200,13 @@ export type Database = {
             foreignKeyName: "fixed_income_fund_id_fkey"
             columns: ["fund_id"]
             isOneToOne: false
+            referencedRelation: "client_funds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixed_income_fund_id_fkey"
+            columns: ["fund_id"]
+            isOneToOne: false
             referencedRelation: "funds"
             referencedColumns: ["id"]
           },
@@ -359,6 +366,13 @@ export type Database = {
             foreignKeyName: "holdings_fund_id_fkey"
             columns: ["fund_id"]
             isOneToOne: false
+            referencedRelation: "client_funds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "holdings_fund_id_fkey"
+            columns: ["fund_id"]
+            isOneToOne: false
             referencedRelation: "funds"
             referencedColumns: ["id"]
           },
@@ -488,6 +502,13 @@ export type Database = {
           year?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "performance_history_fund_id_fkey"
+            columns: ["fund_id"]
+            isOneToOne: false
+            referencedRelation: "client_funds"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "performance_history_fund_id_fkey"
             columns: ["fund_id"]
@@ -640,7 +661,107 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      client_funds: {
+        Row: {
+          client_id: string | null
+          created_at: string | null
+          end_date: string | null
+          id: string | null
+          name: string | null
+          notes: string | null
+          start_date: string | null
+          status: Database["public"]["Enums"]["fund_status"] | null
+          updated_at: string | null
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string | null
+          end_date?: string | null
+          id?: string | null
+          name?: string | null
+          notes?: string | null
+          start_date?: string | null
+          status?: Database["public"]["Enums"]["fund_status"] | null
+          updated_at?: string | null
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string | null
+          end_date?: string | null
+          id?: string | null
+          name?: string | null
+          notes?: string | null
+          start_date?: string | null
+          status?: Database["public"]["Enums"]["fund_status"] | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funds_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_performance_history: {
+        Row: {
+          alocacoes_usd: number | null
+          created_at: string | null
+          desalocacoes_usd: number | null
+          fechado_em: string | null
+          fund_id: string | null
+          id: string | null
+          lucro_bruto_usd: number | null
+          month: number | null
+          patrimonio_fim_usd: number | null
+          patrimonio_inicio_usd: number | null
+          year: number | null
+        }
+        Insert: {
+          alocacoes_usd?: number | null
+          created_at?: string | null
+          desalocacoes_usd?: number | null
+          fechado_em?: string | null
+          fund_id?: string | null
+          id?: string | null
+          lucro_bruto_usd?: number | null
+          month?: number | null
+          patrimonio_fim_usd?: number | null
+          patrimonio_inicio_usd?: number | null
+          year?: number | null
+        }
+        Update: {
+          alocacoes_usd?: number | null
+          created_at?: string | null
+          desalocacoes_usd?: number | null
+          fechado_em?: string | null
+          fund_id?: string | null
+          id?: string | null
+          lucro_bruto_usd?: number | null
+          month?: number | null
+          patrimonio_fim_usd?: number | null
+          patrimonio_inicio_usd?: number | null
+          year?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "performance_history_fund_id_fkey"
+            columns: ["fund_id"]
+            isOneToOne: false
+            referencedRelation: "client_funds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "performance_history_fund_id_fkey"
+            columns: ["fund_id"]
+            isOneToOne: false
+            referencedRelation: "funds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       has_role: {
