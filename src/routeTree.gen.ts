@@ -13,7 +13,15 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as AppRendimentosRouteImport } from './routes/app.rendimentos'
+import { Route as AppRelatoriosRouteImport } from './routes/app.relatorios'
+import { Route as AppPerfilRouteImport } from './routes/app.perfil'
+import { Route as AppMuralRouteImport } from './routes/app.mural'
+import { Route as AppFuturosRouteImport } from './routes/app.futuros'
+import { Route as AppFundosRouteImport } from './routes/app.fundos'
+import { Route as AppDocumentosRouteImport } from './routes/app.documentos'
 import { Route as AdminMuralRouteImport } from './routes/admin.mural'
 import { Route as AdminCotacoesRouteImport } from './routes/admin.cotacoes'
 import { Route as AdminClientesIndexRouteImport } from './routes/admin.clientes.index'
@@ -40,10 +48,50 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppIndexRoute = AppIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AdminRoute,
+} as any)
+const AppRendimentosRoute = AppRendimentosRouteImport.update({
+  id: '/rendimentos',
+  path: '/rendimentos',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppRelatoriosRoute = AppRelatoriosRouteImport.update({
+  id: '/relatorios',
+  path: '/relatorios',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPerfilRoute = AppPerfilRouteImport.update({
+  id: '/perfil',
+  path: '/perfil',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppMuralRoute = AppMuralRouteImport.update({
+  id: '/mural',
+  path: '/mural',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppFuturosRoute = AppFuturosRouteImport.update({
+  id: '/futuros',
+  path: '/futuros',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppFundosRoute = AppFundosRouteImport.update({
+  id: '/fundos',
+  path: '/fundos',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDocumentosRoute = AppDocumentosRouteImport.update({
+  id: '/documentos',
+  path: '/documentos',
+  getParentRoute: () => AppRoute,
 } as any)
 const AdminMuralRoute = AdminMuralRouteImport.update({
   id: '/mural',
@@ -76,22 +124,37 @@ const AdminClientesClientIdFundosFundIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
-  '/app': typeof AppRoute
+  '/app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
   '/admin/cotacoes': typeof AdminCotacoesRoute
   '/admin/mural': typeof AdminMuralRoute
+  '/app/documentos': typeof AppDocumentosRoute
+  '/app/fundos': typeof AppFundosRoute
+  '/app/futuros': typeof AppFuturosRoute
+  '/app/mural': typeof AppMuralRoute
+  '/app/perfil': typeof AppPerfilRoute
+  '/app/relatorios': typeof AppRelatoriosRoute
+  '/app/rendimentos': typeof AppRendimentosRoute
   '/admin/': typeof AdminIndexRoute
+  '/app/': typeof AppIndexRoute
   '/admin/clientes/': typeof AdminClientesIndexRoute
   '/admin/clientes/$clientId/': typeof AdminClientesClientIdIndexRoute
   '/admin/clientes/$clientId/fundos/$fundId': typeof AdminClientesClientIdFundosFundIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/app': typeof AppRoute
   '/login': typeof LoginRoute
   '/admin/cotacoes': typeof AdminCotacoesRoute
   '/admin/mural': typeof AdminMuralRoute
+  '/app/documentos': typeof AppDocumentosRoute
+  '/app/fundos': typeof AppFundosRoute
+  '/app/futuros': typeof AppFuturosRoute
+  '/app/mural': typeof AppMuralRoute
+  '/app/perfil': typeof AppPerfilRoute
+  '/app/relatorios': typeof AppRelatoriosRoute
+  '/app/rendimentos': typeof AppRendimentosRoute
   '/admin': typeof AdminIndexRoute
+  '/app': typeof AppIndexRoute
   '/admin/clientes': typeof AdminClientesIndexRoute
   '/admin/clientes/$clientId': typeof AdminClientesClientIdIndexRoute
   '/admin/clientes/$clientId/fundos/$fundId': typeof AdminClientesClientIdFundosFundIdRoute
@@ -100,11 +163,19 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
-  '/app': typeof AppRoute
+  '/app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
   '/admin/cotacoes': typeof AdminCotacoesRoute
   '/admin/mural': typeof AdminMuralRoute
+  '/app/documentos': typeof AppDocumentosRoute
+  '/app/fundos': typeof AppFundosRoute
+  '/app/futuros': typeof AppFuturosRoute
+  '/app/mural': typeof AppMuralRoute
+  '/app/perfil': typeof AppPerfilRoute
+  '/app/relatorios': typeof AppRelatoriosRoute
+  '/app/rendimentos': typeof AppRendimentosRoute
   '/admin/': typeof AdminIndexRoute
+  '/app/': typeof AppIndexRoute
   '/admin/clientes/': typeof AdminClientesIndexRoute
   '/admin/clientes/$clientId/': typeof AdminClientesClientIdIndexRoute
   '/admin/clientes/$clientId/fundos/$fundId': typeof AdminClientesClientIdFundosFundIdRoute
@@ -118,18 +189,33 @@ export interface FileRouteTypes {
     | '/login'
     | '/admin/cotacoes'
     | '/admin/mural'
+    | '/app/documentos'
+    | '/app/fundos'
+    | '/app/futuros'
+    | '/app/mural'
+    | '/app/perfil'
+    | '/app/relatorios'
+    | '/app/rendimentos'
     | '/admin/'
+    | '/app/'
     | '/admin/clientes/'
     | '/admin/clientes/$clientId/'
     | '/admin/clientes/$clientId/fundos/$fundId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/app'
     | '/login'
     | '/admin/cotacoes'
     | '/admin/mural'
+    | '/app/documentos'
+    | '/app/fundos'
+    | '/app/futuros'
+    | '/app/mural'
+    | '/app/perfil'
+    | '/app/relatorios'
+    | '/app/rendimentos'
     | '/admin'
+    | '/app'
     | '/admin/clientes'
     | '/admin/clientes/$clientId'
     | '/admin/clientes/$clientId/fundos/$fundId'
@@ -141,7 +227,15 @@ export interface FileRouteTypes {
     | '/login'
     | '/admin/cotacoes'
     | '/admin/mural'
+    | '/app/documentos'
+    | '/app/fundos'
+    | '/app/futuros'
+    | '/app/mural'
+    | '/app/perfil'
+    | '/app/relatorios'
+    | '/app/rendimentos'
     | '/admin/'
+    | '/app/'
     | '/admin/clientes/'
     | '/admin/clientes/$clientId/'
     | '/admin/clientes/$clientId/fundos/$fundId'
@@ -150,7 +244,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRouteWithChildren
-  AppRoute: typeof AppRoute
+  AppRoute: typeof AppRouteWithChildren
   LoginRoute: typeof LoginRoute
 }
 
@@ -184,12 +278,68 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/app/': {
+      id: '/app/'
+      path: '/'
+      fullPath: '/app/'
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/admin/': {
       id: '/admin/'
       path: '/'
       fullPath: '/admin/'
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRoute
+    }
+    '/app/rendimentos': {
+      id: '/app/rendimentos'
+      path: '/rendimentos'
+      fullPath: '/app/rendimentos'
+      preLoaderRoute: typeof AppRendimentosRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/relatorios': {
+      id: '/app/relatorios'
+      path: '/relatorios'
+      fullPath: '/app/relatorios'
+      preLoaderRoute: typeof AppRelatoriosRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/perfil': {
+      id: '/app/perfil'
+      path: '/perfil'
+      fullPath: '/app/perfil'
+      preLoaderRoute: typeof AppPerfilRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/mural': {
+      id: '/app/mural'
+      path: '/mural'
+      fullPath: '/app/mural'
+      preLoaderRoute: typeof AppMuralRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/futuros': {
+      id: '/app/futuros'
+      path: '/futuros'
+      fullPath: '/app/futuros'
+      preLoaderRoute: typeof AppFuturosRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/fundos': {
+      id: '/app/fundos'
+      path: '/fundos'
+      fullPath: '/app/fundos'
+      preLoaderRoute: typeof AppFundosRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/documentos': {
+      id: '/app/documentos'
+      path: '/documentos'
+      fullPath: '/app/documentos'
+      preLoaderRoute: typeof AppDocumentosRouteImport
+      parentRoute: typeof AppRoute
     }
     '/admin/mural': {
       id: '/admin/mural'
@@ -250,10 +400,34 @@ const AdminRouteChildren: AdminRouteChildren = {
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
+interface AppRouteChildren {
+  AppDocumentosRoute: typeof AppDocumentosRoute
+  AppFundosRoute: typeof AppFundosRoute
+  AppFuturosRoute: typeof AppFuturosRoute
+  AppMuralRoute: typeof AppMuralRoute
+  AppPerfilRoute: typeof AppPerfilRoute
+  AppRelatoriosRoute: typeof AppRelatoriosRoute
+  AppRendimentosRoute: typeof AppRendimentosRoute
+  AppIndexRoute: typeof AppIndexRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppDocumentosRoute: AppDocumentosRoute,
+  AppFundosRoute: AppFundosRoute,
+  AppFuturosRoute: AppFuturosRoute,
+  AppMuralRoute: AppMuralRoute,
+  AppPerfilRoute: AppPerfilRoute,
+  AppRelatoriosRoute: AppRelatoriosRoute,
+  AppRendimentosRoute: AppRendimentosRoute,
+  AppIndexRoute: AppIndexRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRouteWithChildren,
-  AppRoute: AppRoute,
+  AppRoute: AppRouteWithChildren,
   LoginRoute: LoginRoute,
 }
 export const routeTree = rootRouteImport
