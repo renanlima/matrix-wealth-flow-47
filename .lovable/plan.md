@@ -1,79 +1,100 @@
-## Tour interativo do admin — "Comece por aqui"
+## Modo DEMO — Overlay visual no admin
 
-Um guia passo a passo embutido no painel, focado no fluxo essencial de operação: **cadastrar cliente → criar fundo → lançar depósito → adicionar posição → atualizar cotações → conferir no painel do cliente**.
-
----
-
-### 1. Como vai funcionar (UX)
-
-- **Card "Comece por aqui"** fixo no topo do `/admin` (Dashboard), logo abaixo do título.
-- Mostra os **6 passos** numerados, cada um com:
-  - Status (✓ feito / ● em andamento / ○ pendente) — detectado automaticamente nos dados existentes.
-  - Título curto + 1 linha de descrição.
-  - Botão "Ir agora" que leva direto à tela/ação correspondente.
-- **Barra de progresso** no topo (ex: "3 de 6 concluídos").
-- **Botão "Ocultar guia"** — quando o admin marca como concluído OU quando todos os 6 passos estão ✓, o card colapsa em um link discreto "Ver guia inicial" no rodapé do dashboard.
-- Estado salvo em `localStorage` (chave `admin_onboarding_dismissed`) — não precisa de migration.
-- **Tooltip "?" no header do AppShell** (ícone HelpCircle) que reabre o guia a qualquer momento.
+Toggle nas Configurações que troca os dados visíveis no painel admin por um dataset fictício e otimista de 3 meses, **sem inserir nada no banco**. Ideal para apresentações.
 
 ---
 
-### 2. Os 6 passos
+### 1. Como funciona (UX)
 
-| # | Passo | Detecção automática (✓) | Ação do botão |
-|---|-------|--------------------------|---------------|
-| 1 | **Cadastrar o primeiro cliente** | `profiles` com role=client existe | `/admin/clientes` (com foco no botão "Novo cliente") |
-| 2 | **Criar um fundo para o cliente** | qualquer registro em `funds` | `/admin/clientes` (abre cliente → aba Fundos) |
-| 3 | **Registrar depósito inicial (USD)** | qualquer registro em `deposits` | `/admin/clientes/$id` (aba Caixa) |
-| 4 | **Adicionar a primeira posição** (cripto, RF ou futuros) | qualquer `holdings` ativa | `/admin/clientes/$id/fundos/$fundId` |
-| 5 | **Atualizar cotações** | `coin_prices.updated_at` < 24h | `/admin/cotacoes` (botão "Atualizar agora") |
-| 6 | **Conferir o que o cliente vê** | sempre disponível | abre `/app` em nova aba (ou modo preview) |
-
-Cada passo também tem um pequeno texto de ajuda expansível ("Como faço?") com 2-3 frases explicando o porquê e o que esperar.
+- Nova rota **`/admin/configuracoes`** (item no menu lateral, ícone Settings) com um card "Modo DEMO":
+  - Switch grande "Ativar modo demonstração"
+  - Texto explicativo: "Substitui os dados reais por um dataset fictício otimista (3 meses, 3 clientes, 4 fundos, ~15 ativos). Nenhum dado real é alterado."
+  - Botão "Resetar dados demo" (regenera com novo seed se quiser variar).
+- **Badge "MODO DEMO"** persistente no header do AppShell (cor warning, pulsante) sempre que ativo, em qualquer rota admin.
+- Estado em `localStorage` (`demo_mode_enabled`) — persiste entre sessões e sincroniza entre abas.
+- **Não afeta o painel do cliente** (`/app/*`) nem o banco.
 
 ---
 
-### 3. Visual e responsividade
+### 2. Dataset gerado (determinístico)
 
-- Card com borda destacada (`border-primary/30`) e ícone `Sparkles` no título.
-- Layout em **lista vertical** (1 coluna) — funciona bem no viewport atual (1550px) e em mobile.
-- Passos concluídos ficam com opacidade 60% e ícone `CheckCircle2` verde.
-- Passo "atual" (primeiro pendente) recebe destaque sutil (background `bg-primary/5`).
-- Ao terminar todos: card mostra mensagem "Tudo pronto. Bom trabalho!" e o botão "Ocultar guia" vira primário.
+Função `generateDemoData(seed)` em `src/lib/demo-data.ts` produz:
 
----
+**3 clientes:**
+- Aurora Capital (Mariana Souza)
+- BlueRidge Wealth (Carlos Mendes)
+- Helix Family Office (Fernanda Lopes)
 
-### 4. Detalhes técnicos
+**4 fundos** (alguns clientes têm 2):
+- Aurora Cripto Core, Aurora RF USD, BlueRidge Hedge, Helix Diversificado
 
-**Novo componente:** `src/components/admin/OnboardingGuide.tsx`
-- Recebe os contadores que o `fetchAdminStats` já calcula (`clientCount`, `activeHoldings`, último depósito, `lastPriceUpdate`) — sem queries adicionais.
-- Lê/escreve `localStorage` para `dismissed`.
-- Usa `<Link>` do TanStack Router para navegação tipada.
-- Para o passo 2/3/4 que precisam de um clientId, escolhe o cliente mais recente (`profiles` ordenado por `created_at desc`) ou, se não houver, leva à lista.
+**~15 holdings ativas** distribuídas: BTC, ETH, SOL, BNB, AVAX, LINK, MATIC, ARB, DOT, ADA + 3 RF (Treasury 6m, Corporate AAA, Stablecoin yield).
 
-**Edição:** `src/routes/admin.index.tsx`
-- Renderiza `<OnboardingGuide stats={stats} />` no topo do dashboard, antes dos KPIs.
-- Adiciona ao `Stats` os campos faltantes: `firstClientId` (ou null) e `hasDeposit: boolean` — derivados das queries já existentes (sem novo round-trip).
+**3 meses de histórico:**
+- ~12 depósitos (entre $20k–$200k cada, distribuídos nos 90 dias)
+- ~5 saques pequenos
+- ~6 realizações (sempre com lucro, +8% a +25%)
+- 3 fechamentos mensais positivos (+4% a +9% ao mês)
+- Cotações com "última atualização" recente
 
-**Edição:** `src/components/AppShell.tsx`
-- Adiciona ícone `HelpCircle` no header (apenas para `requireRole=admin`) que dispara um evento custom `reopen-onboarding` ouvido pelo guia (limpa o `localStorage` e força exibição).
+**Tom otimista realista:** P&L total não realizado ~+22% no trimestre; 1-2 posições com perda pequena (–3% a –5%) para parecer real; AUM agregado ~$3.5M–$4.5M.
 
-**Sem migrations**, **sem novas tabelas**, **sem alterações de RLS**.
+Tudo gerado a partir de um seed fixo (ou aleatório quando o admin clicar "Resetar"), com PRNG simples (mulberry32) — mesma entrada produz mesma saída, sem dependências.
 
 ---
 
-### 5. Arquivos
+### 3. Onde o overlay se aplica
 
-- **Criar:** `src/components/admin/OnboardingGuide.tsx`
-- **Editar:** `src/routes/admin.index.tsx` (renderizar guia + expor 2 campos extras em Stats)
-- **Editar:** `src/components/AppShell.tsx` (botão de ajuda no header admin)
+Apenas leitura (substitui o retorno das `useQuery` quando `demo === true`):
+
+| Rota | O que troca |
+|------|-------------|
+| `/admin` (Dashboard) | Stats completas: KPIs, gráficos AUM/moeda/cashflow, top movers, alertas zerados |
+| `/admin/clientes` | Lista dos 3 clientes demo |
+| `/admin/clientes/$id` | Aceita só os 3 IDs demo (uuid fixos `demo-1/2/3`); mostra fundos, caixa, lançamentos |
+| `/admin/clientes/$id/fundos/$fundId` | Holdings + realizações do fundo demo |
+| `/admin/cotacoes` | Mostra preços demo (15 moedas, todos "atualizados há 2min") |
+
+Onboarding guide marca todos os 6 passos como ✓ no modo demo.
+
+**Sem alterações em:** `/app/*` (cliente real continua vendo seus dados), mural, documentos, futuros, edge functions.
 
 ---
 
-### 6. Fora de escopo (para depois, se quiser)
+### 4. Arquivos
 
-- Tour avançado (documentos, mural, fechamento mensal, saques, realizações, futuros, PDFs).
-- Tooltips contextuais flutuantes em cada tela (estilo Intro.js / Shepherd).
-- Persistência do progresso no banco (sincroniza entre dispositivos).
+**Criar:**
+- `src/contexts/DemoContext.tsx` — provider + `useDemo()` hook + sync entre abas via `storage` event
+- `src/lib/demo-data.ts` — `generateDemoData(seed)`, `getDemoStats()`, `getDemoClients()`, `getDemoClientDetail(id)`, `getDemoFundDetail(fundId)`, `getDemoPrices()`
+- `src/routes/admin.configuracoes.tsx` — página com switch e descrição
 
-Posso seguir com essa implementação?
+**Editar:**
+- `src/router.tsx` ou `src/routes/__root.tsx` — envolver app em `<DemoProvider>` (junto ao QueryClientProvider)
+- `src/routes/admin.tsx` — adicionar item "Configurações" no `navItems`
+- `src/components/AppShell.tsx` — badge "MODO DEMO" pulsante quando ativo
+- `src/routes/admin.index.tsx` — `useQuery` lê `demo` e usa `getDemoStats()`; `OnboardingGuide` recebe state com tudo `true`
+- `src/routes/admin.clientes.index.tsx` — overlay na lista
+- `src/routes/admin.clientes.$clientId.index.tsx` — overlay no detalhe (aceita `demo-1/2/3`)
+- `src/routes/admin.clientes.$clientId.fundos.$fundId.tsx` — overlay no fundo
+- `src/routes/admin.cotacoes.tsx` — overlay nas cotações
+
+---
+
+### 5. Detalhes técnicos
+
+- **Cache invalidation**: incluir `demo` no `queryKey` (ex: `["admin", "stats", { demo }]`) para que ao alternar o toggle as queries refaçam imediatamente sem refetch real.
+- **Tipagem**: o gerador retorna exatamente os mesmos shapes do `Stats`, `ClientRow` etc. — zero alteração nos componentes que consomem.
+- **Sem dependências novas**.
+- **Sem migrations / sem secrets / sem edge functions**.
+- **Performance**: dataset é puro JS in-memory, ~50ms para gerar; memorizado por seed.
+- **Seed default** = `42` (estável); botão "Resetar" gera um novo seed aleatório e salva em `localStorage`.
+
+---
+
+### 6. Fora de escopo
+
+- Modo demo no painel do cliente (`/app/*`) — pode vir depois.
+- Persistir progresso da apresentação (qual cliente foi mostrado).
+- Snapshot/comparação entre datasets.
+
+Posso implementar?
