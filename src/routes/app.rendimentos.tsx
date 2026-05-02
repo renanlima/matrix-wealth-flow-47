@@ -40,13 +40,14 @@ function ClientFixedIncome() {
         .from("client_funds")
         .select("id, name")
         .eq("client_id", user.id);
-      const fMap = new Map((fs ?? []).map((f) => [f.id, f.name]));
+      const validFunds = (fs ?? []).filter((f): f is { id: string; name: string } => !!f.id && !!f.name);
+      const fMap = new Map(validFunds.map((f) => [f.id, f.name] as const));
       setFunds(fMap);
-      if (!fs || fs.length === 0) { setRows([]); setLoading(false); return; }
+      if (validFunds.length === 0) { setRows([]); setLoading(false); return; }
       const { data } = await supabase
         .from("fixed_income")
         .select("id, fund_id, product_name, asset_symbol, valor_aplicado_usd, taxa_anual_pct, data_registro, data_saida, ultimo_preco_usd, notes")
-        .in("fund_id", fs.map((f) => f.id))
+        .in("fund_id", validFunds.map((f) => f.id))
         .order("data_registro", { ascending: false });
       setRows((data as FixedIncomeRow[]) ?? []);
       setLoading(false);
