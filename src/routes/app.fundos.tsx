@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,28 +11,32 @@ export const Route = createFileRoute("/app/fundos")({
   component: ClientFunds,
 });
 
+async function fetchClientFunds(userId: string) {
+  const [{ data: f }, { data: p }] = await Promise.all([
+    supabase.from("funds").select("*").eq("client_id", userId).order("created_at", { ascending: false }),
+    supabase.from("coin_prices").select("symbol, price_usd"),
+  ]);
+  const funds = f ?? [];
+  const prices = new Map((p ?? []).map((x) => [x.symbol.toUpperCase(), Number(x.price_usd)]));
+  const ids = funds.map((x) => x.id);
+  let holdings: any[] = [];
+  if (ids.length) {
+    const { data: h } = await supabase.from("holdings").select("*").in("fund_id", ids);
+    holdings = h ?? [];
+  }
+  return { funds, holdings, prices };
+}
+
 function ClientFunds() {
   const { user } = useAuth();
-  const [funds, setFunds] = useState<any[]>([]);
-  const [holdings, setHoldings] = useState<any[]>([]);
-  const [prices, setPrices] = useState<Map<string, number>>(new Map());
-
-  useEffect(() => {
-    if (!user) return;
-    (async () => {
-      const [{ data: f }, { data: p }] = await Promise.all([
-        supabase.from("funds").select("*").eq("client_id", user.id).order("created_at", { ascending: false }),
-        supabase.from("coin_prices").select("symbol, price_usd"),
-      ]);
-      setFunds(f ?? []);
-      setPrices(new Map((p ?? []).map((x) => [x.symbol.toUpperCase(), Number(x.price_usd)])));
-      const ids = (f ?? []).map((x) => x.id);
-      if (ids.length) {
-        const { data: h } = await supabase.from("holdings").select("*").in("fund_id", ids);
-        setHoldings(h ?? []);
-      }
-    })();
-  }, [user]);
+  const { data } = useQuery({
+    queryKey: ["client", "funds", user?.id],
+    queryFn: () => fetchClientFunds(user!.id),
+    enabled: !!user,
+  });
+  const funds = data?.funds ?? [];
+  const holdings = data?.holdings ?? [];
+  const prices = data?.prices ?? new Map<string, number>();
 
   return (
     <div className="space-y-6">
