@@ -1,5 +1,16 @@
-import { createFileRoute, Link, useParams } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useEffect, useState, useCallback } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { ClickableRow } from "@/components/ui/clickable-row";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -135,6 +146,7 @@ interface FundRow {
 }
 
 function FundsTab({ clientId }: { clientId: string }) {
+  const navigate = useNavigate();
   const [rows, setRows] = useState<FundRow[]>([]);
   const [open, setOpen] = useState(false);
 
@@ -173,19 +185,32 @@ function FundsTab({ clientId }: { clientId: string }) {
               <TableHead>Início</TableHead>
               <TableHead>Fim</TableHead>
               <TableHead>Taxa perf.</TableHead>
-              <TableHead className="text-right"></TableHead>
+              <TableHead className="text-right w-10"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
-                  Nenhum fundo cadastrado.
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <div className="flex flex-col items-center gap-2">
+                    <p className="text-sm">Nenhum fundo cadastrado.</p>
+                    <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+                      <Plus className="h-3.5 w-3.5 mr-1" /> Criar primeiro fundo
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             )}
             {rows.map((f) => (
-              <TableRow key={f.id}>
+              <ClickableRow
+                key={f.id}
+                onActivate={() =>
+                  navigate({
+                    to: "/admin/clientes/$clientId/fundos/$fundId",
+                    params: { clientId, fundId: f.id },
+                  })
+                }
+              >
                 <TableCell className="font-medium">{f.name}</TableCell>
                 <TableCell>
                   <span
@@ -200,16 +225,9 @@ function FundsTab({ clientId }: { clientId: string }) {
                 <TableCell className="text-xs">{formatDate(f.end_date)}</TableCell>
                 <TableCell className="font-mono text-xs">{f.performance_fee_pct}%</TableCell>
                 <TableCell className="text-right">
-                  <Link
-                    to="/admin/clientes/$clientId/fundos/$fundId"
-                    params={{ clientId, fundId: f.id }}
-                  >
-                    <Button variant="ghost" size="sm">
-                      Abrir
-                    </Button>
-                  </Link>
+                  <span className="text-muted-foreground/60">›</span>
                 </TableCell>
-              </TableRow>
+              </ClickableRow>
             ))}
           </TableBody>
         </Table>
@@ -350,10 +368,14 @@ function CashTab({ clientId }: { clientId: string }) {
   const totalWithdraws = deposits.filter((e) => e.type === "withdraw").reduce((s, e) => s + e.amount_usd, 0);
   const cashBalance = totalDeposits - totalWithdraws - holdingsCost + realizationsTotal;
 
-  const remove = async (entry: CashEntry) => {
-    if (!confirm("Remover este lançamento?")) return;
+  const [pendingDelete, setPendingDelete] = useState<CashEntry | null>(null);
+
+  const confirmRemove = async () => {
+    if (!pendingDelete) return;
+    const entry = pendingDelete;
     const tbl = entry.type === "deposit" ? "deposits" : "withdrawals";
     const { error } = await supabase.from(tbl).delete().eq("id", entry.id);
+    setPendingDelete(null);
     if (error) toast.error(error.message);
     else {
       toast.success("Lançamento removido");
@@ -407,7 +429,12 @@ function CashTab({ clientId }: { clientId: string }) {
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{e.notes ?? "—"}</TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" onClick={() => remove(e)}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Remover lançamento"
+                      onClick={() => setPendingDelete(e)}
+                    >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </TableCell>
@@ -417,6 +444,29 @@ function CashTab({ clientId }: { clientId: string }) {
           </Table>
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!pendingDelete} onOpenChange={(o) => !o && setPendingDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover lançamento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingDelete && (
+                <>
+                  Esta ação remove o {pendingDelete.type === "deposit" ? "depósito" : "saque"} de{" "}
+                  <span className="font-mono">${pendingDelete.amount_usd.toFixed(2)}</span> de{" "}
+                  {formatDate(pendingDelete.date)}. Não pode ser desfeita.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmRemove} className="bg-destructive hover:bg-destructive/90">
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
