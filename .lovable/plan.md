@@ -1,92 +1,106 @@
-## Objetivo
+## Melhorias de UX e Dashboard Analítico
 
-Aplicar **máscara monetária USD** (`$ 1,234.56`, formato US) em todos os campos de valor dos formulários de admin, mantendo a gravação como `numeric` em USD no banco. Sem mudanças de schema.
+Plano dividido em 3 frentes: navegação/clique, dashboard do gestor com mais analytics, e refinamentos no app do cliente.
 
-## Comportamento da máscara
+---
 
-- Enquanto digita: insere separador de milhar automaticamente, aceita apenas dígitos + um `.` decimal, máximo 2 casas (ou 8 para preço de cripto).
-- Mostra prefixo `$` cinza dentro do input (ícone à esquerda).
-- Cola/digita "1234.5" → exibe `$ 1,234.50`.
-- Backspace funciona naturalmente (remove caractere por caractere).
-- No submit, manda `Number(unmasked)` para o Supabase — exatamente como hoje.
-- Vazio = vazio (não força `$ 0.00`).
+### 1. Navegação clicável (linha inteira)
 
-## Componente novo: `MoneyInput`
+**Problema:** hoje só o botão "Abrir" navega. Linha inteira deveria ser clicável.
 
-Arquivo: `src/components/ui/money-input.tsx`
+**Onde aplicar:**
+- `admin/clientes` → linha do cliente abre detalhe (cursor-pointer + hover)
+- `admin/clientes/$clientId` aba Fundos → linha do fundo abre detalhe
+- `app/fundos` → header do card do fundo expande/colapsa posições
+- Manter botão "Abrir" como affordance visual, mas a linha inteira recebe `onClick` + `role="button"` + `cursor-pointer` + foco por teclado (`Enter`/`Space`).
 
-Props:
-- `value: string` (sempre a string formatada exibida)
-- `onValueChange(raw: string, numeric: number)`
-- `decimals?: number` (default 2; usar 8 para `entry_price_usd` cripto)
-- `currency?: "USD"` (preparado para futuro, mas hoje fixo)
-- demais props do `Input` do shadcn
+---
 
-Implementação:
-- Wrapper sobre o `<Input>` existente (mantém estilo neon do projeto).
-- Função `formatUSD(raw, decimals)` usa `Intl.NumberFormat("en-US", { minimumFractionDigits: 0, maximumFractionDigits: decimals })`.
-- Prefixo `$` via `<span className="absolute left-3 ...">` + `pl-7` no input.
-- `inputMode="decimal"` para teclado numérico no mobile; `type="text"` (não `number`, porque `number` não aceita vírgulas).
+### 2. Dashboard Admin — mais dados analíticos
 
-## Onde aplicar (8 campos no total)
+Hoje só temos 4 KPIs (AUM, clientes, posições, último preço). Vou adicionar:
 
-1. **`admin.clientes.$clientId.fundos.$fundId.tsx`**
-   - "Nova posição" → Quantidade (sem máscara, fica como está — é cripto, não USD), **Preço entrada (USD)** ← `MoneyInput decimals={8}`.
-   - "Vender posição" → **Preço saída (USD)** ← `MoneyInput decimals={8}`.
-2. **`admin.clientes.$clientId.index.tsx`**
-   - Diálogo Depósito → **Valor (USD)** ← `MoneyInput decimals={2}`.
-   - Diálogo Saque → **Valor (USD)** ← `MoneyInput decimals={2}`.
-3. **`components/admin/FixedIncomeTab.tsx`**
-   - **Valor aplicado (USD)** ← `MoneyInput decimals={2}`.
-   - **Preço entrada (opcional)** ← `MoneyInput decimals={8}`.
-   - Taxa anual (%) **fica como está** — é percentual, não moeda.
-4. **`components/admin/DocumentsTab.tsx`**
-   - **Valor (USD)** do recibo ← `MoneyInput decimals={2}`.
+**Novos KPIs (linha 2):**
+- **Caixa total USD** (depósitos − saques − custo de holdings + realizações)
+- **Lucro não realizado** (market − custo das holdings ativas) com % e cor
+- **Lucro realizado MTD** (realizações no mês corrente)
+- **Net flow 30d** (depósitos − saques nos últimos 30 dias)
 
-Campos que **não** mudam:
-- Quantidade de cripto (é unidade da moeda, ex.: 0.005 BTC).
-- Taxa de performance (%) e taxa anual (%).
-- Ano/mês de relatórios.
+**Gráficos:**
+- **AUM por cliente** (bar chart horizontal, top 10) — identifica concentração
+- **Distribuição por moeda** (pie chart consolidado da gestora)
+- **Movimentação de caixa últimos 90 dias** (área chart: depósitos vs saques por dia)
+- **Top 5 maiores ganhos/perdas não realizados** (lista com cliente, moeda, P&L)
 
-## Detalhe de implementação
+**Alertas operacionais (card):**
+- Cotações desatualizadas (>24h)
+- Erros recentes em `coin_price_errors` (contagem últimas 24h)
+- Fundos sem fechamento de performance no mês passado
+- Clientes sem movimentação há >90 dias
 
-```ts
-// money-input.tsx — núcleo
-function maskUsd(input: string, decimals = 2): { display: string; numeric: number } {
-  // 1. remove tudo que não é dígito ou '.'
-  const cleaned = input.replace(/[^\d.]/g, "");
-  // 2. mantém só o primeiro '.'
-  const [int, dec = ""] = cleaned.split(".");
-  const decTrimmed = dec.slice(0, decimals);
-  // 3. formata parte inteira com vírgulas
-  const intFmt = int ? Number(int).toLocaleString("en-US") : "";
-  const display = decTrimmed || cleaned.includes(".")
-    ? `${intFmt}.${decTrimmed}`
-    : intFmt;
-  const numeric = Number(`${int || "0"}.${decTrimmed || "0"}`);
-  return { display, numeric };
-}
-```
+**Atalhos rápidos:** "Novo cliente", "Atualizar cotações", "Publicar no mural" como botões no topo.
 
-Nos forms atuais o estado é `string`. O `MoneyInput` mantém isso — só troca a função de formatação. Submit segue chamando `Number(form.amount)` (que agora vem da string crua, não da formatada — guardo as duas).
+---
 
-Padrão de uso:
-```tsx
-const [amount, setAmount] = useState({ display: "", numeric: 0 });
-<MoneyInput
-  value={amount.display}
-  onValueChange={(d, n) => setAmount({ display: d, numeric: n })}
-  decimals={2}
-  required
-/>
-// no submit:
-.insert({ amount_usd: amount.numeric })
-```
+### 3. UX geral — Admin
 
-## Ordem de execução
+- **Busca/filtro na lista de clientes** (input com debounce filtrando por nome/email)
+- **Ordenação clicável** nos cabeçalhos das tabelas (clientes, fundos, caixa)
+- **Empty states melhores** com CTA inline ("Nenhum cliente cadastrado → [Novo cliente]")
+- **Confirmação destrutiva via AlertDialog** em vez de `confirm()` nativo (remover lançamento, deletar holding) — mais elegante e acessível
+- **Badge de status** (componente `Badge`) em vez de span colorido para "ativo/encerrado/ativa"
+- **Breadcrumbs** no detalhe do cliente: `Clientes › Nome › Fundos › Nome do fundo`
+- **Toasts com ação "Desfazer"** após exclusão de lançamento de caixa (5s)
+- **Atalhos de teclado:** `/` foca busca, `n` abre "novo" no contexto da página, `Esc` fecha dialogs (já nativo)
+- **Sticky header** na sidebar e nas tabs internas do cliente (já longas)
 
-1. Criar `src/components/ui/money-input.tsx` + testes manuais (digitar, colar, backspace, decimais).
-2. Refatorar os 8 campos listados.
-3. Validar que cada submit grava o número correto no banco (sem vírgulas).
+---
 
-Posso seguir?
+### 4. UX geral — Cliente
+
+- **Card resumo no topo do `/app/fundos`** com total agregado (patrimônio, custo, P&L %) — hoje só vê por fundo
+- **Toggle "Mostrar encerradas"** nas posições (hoje mistura ativas e encerradas sem filtro)
+- **Sparkline 24h** ao lado de cada moeda no dashboard usando `percent_change_24h`
+- **Última atualização** visível também no `/app/fundos` e `/app/rendimentos`
+- **Indicador de variação no KPI** "Patrimônio total" (ex: "+2.3% nas últimas 24h" estimado pelas posições)
+- **Skeleton loaders** nos cards/tabelas durante fetch (em vez de tela vazia)
+- **Botão "Exportar PDF"** no header do dashboard do cliente (já existe `lib/pdf.ts`)
+
+---
+
+### 5. Acessibilidade & polimento
+
+- `aria-label` em botões só com ícone (lixeira, refresh)
+- Foco visível consistente (`focus-visible:ring-primary`)
+- Tabelas com `<caption>` para screen readers
+- Reduzir layout shift: reservar altura mínima nos cards de KPI
+
+---
+
+### Detalhes técnicos
+
+**Arquivos a editar:**
+- `src/routes/admin.index.tsx` — adicionar KPIs, gráficos (recharts já instalado), alertas, atalhos
+- `src/routes/admin.clientes.index.tsx` — linha clicável, busca, ordenação, empty state
+- `src/routes/admin.clientes.$clientId.index.tsx` — linha clicável em Fundos, AlertDialog para exclusão, breadcrumbs, toast undo
+- `src/routes/app.index.tsx` — variação 24h, skeleton, botão PDF
+- `src/routes/app.fundos.tsx` — card resumo agregado, toggle encerradas, skeleton
+- `src/components/AppShell.tsx` — atalhos de teclado globais (opcional)
+- Novo: `src/components/ui/data-table-row.tsx` — wrapper `<TableRow>` clicável reutilizável
+- Novo: `src/components/admin/AdminAnalytics.tsx` — gráficos do dashboard (separa lógica pesada)
+
+**Sem migrations** — toda análise é derivada das tabelas existentes (`deposits`, `withdrawals`, `holdings`, `realizations`, `coin_prices`, `coin_price_errors`, `performance_history`, `funds`).
+
+**Performance:** consultas agregadas no React Query com `staleTime: 60s` (já padrão pós-refactor de velocidade); novo dashboard fará 1 batch de `Promise.all` igual ao atual, só com mais selects.
+
+---
+
+### Ordem de execução
+
+1. Linha clicável + busca/ordenação em listas (impacto alto, esforço baixo)
+2. Dashboard admin analítico (novos KPIs, gráficos, alertas)
+3. AlertDialog de exclusão + breadcrumbs + skeletons
+4. Refinamentos do app do cliente (resumo agregado, toggle encerradas, sparklines)
+5. Acessibilidade e atalhos de teclado
+
+Posso seguir com essa ordem ou você prefere priorizar alguma frente?
