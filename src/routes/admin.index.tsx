@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Money } from "@/components/Money";
@@ -17,50 +17,48 @@ interface Stats {
   lastPriceUpdate: string | null;
 }
 
+async function fetchAdminStats(): Promise<Stats> {
+  const [{ count: clientCount }, { data: holdings }, { data: prices }, { data: cash }, { data: w }] =
+    await Promise.all([
+      supabase.from("clients").select("id", { count: "exact", head: true }),
+      supabase.from("holdings").select("coin_symbol, quantity").eq("status", "ativa"),
+      supabase.from("coin_prices").select("symbol, price_usd, updated_at"),
+      supabase.from("deposits").select("amount_usd"),
+      supabase.from("withdrawals").select("amount_usd"),
+    ]);
+
+  const priceMap = new Map(prices?.map((p) => [p.symbol.toUpperCase(), Number(p.price_usd)]));
+  const aumHoldings =
+    holdings?.reduce(
+      (sum, h) =>
+        sum + Number(h.quantity) * (priceMap.get(h.coin_symbol.toUpperCase()) ?? 0),
+      0,
+    ) ?? 0;
+
+  const cashUsd = cash?.reduce((s, d) => s + Number(d.amount_usd), 0) ?? 0;
+  const wUsd = w?.reduce((s, d) => s + Number(d.amount_usd), 0) ?? 0;
+
+  const lastUpdate =
+    prices?.reduce(
+      (latest, p) => (!latest || p.updated_at > latest ? p.updated_at : latest),
+      null as string | null,
+    ) ?? null;
+
+  return {
+    clientCount: clientCount ?? 0,
+    aumUsd: aumHoldings + cashUsd - wUsd,
+    activeHoldings: holdings?.length ?? 0,
+    lastPriceUpdate: lastUpdate,
+  };
+}
+
 function AdminDashboard() {
-  const [stats, setStats] = useState<Stats>({
-    clientCount: 0,
-    aumUsd: 0,
-    activeHoldings: 0,
-    lastPriceUpdate: null,
+  const { data: stats } = useQuery({
+    queryKey: ["admin", "stats"],
+    queryFn: fetchAdminStats,
+    placeholderData: { clientCount: 0, aumUsd: 0, activeHoldings: 0, lastPriceUpdate: null },
   });
-
-  useEffect(() => {
-    (async () => {
-      const [{ count: clientCount }, { data: holdings }, { data: prices }, { data: cash }] =
-        await Promise.all([
-          supabase.from("clients").select("id", { count: "exact", head: true }),
-          supabase.from("holdings").select("coin_symbol, quantity").eq("status", "ativa"),
-          supabase.from("coin_prices").select("symbol, price_usd, updated_at"),
-          supabase.from("deposits").select("amount_usd"),
-        ]);
-
-      const priceMap = new Map(prices?.map((p) => [p.symbol.toUpperCase(), Number(p.price_usd)]));
-      const aumHoldings =
-        holdings?.reduce(
-          (sum, h) =>
-            sum + Number(h.quantity) * (priceMap.get(h.coin_symbol.toUpperCase()) ?? 0),
-          0,
-        ) ?? 0;
-
-      const cashUsd = cash?.reduce((s, d) => s + Number(d.amount_usd), 0) ?? 0;
-      const { data: w } = await supabase.from("withdrawals").select("amount_usd");
-      const wUsd = w?.reduce((s, d) => s + Number(d.amount_usd), 0) ?? 0;
-
-      const lastUpdate =
-        prices?.reduce(
-          (latest, p) => (!latest || p.updated_at > latest ? p.updated_at : latest),
-          null as string | null,
-        ) ?? null;
-
-      setStats({
-        clientCount: clientCount ?? 0,
-        aumUsd: aumHoldings + cashUsd - wUsd,
-        activeHoldings: holdings?.length ?? 0,
-        lastPriceUpdate: lastUpdate,
-      });
-    })();
-  }, []);
+  const s = stats ?? { clientCount: 0, aumUsd: 0, activeHoldings: 0, lastPriceUpdate: null };
 
   return (
     <div className="space-y-6">
@@ -73,24 +71,24 @@ function AdminDashboard() {
         <StatCard
           icon={Wallet}
           label="AUM total"
-          value={<Money usd={stats.aumUsd} className="text-xl text-glow text-primary" />}
+          value={<Money usd={s.aumUsd} className="text-xl text-glow text-primary" />}
         />
         <StatCard
           icon={Users}
           label="Clientes ativos"
-          value={<span className="text-xl font-mono">{stats.clientCount}</span>}
+          value={<span className="text-xl font-mono">{s.clientCount}</span>}
         />
         <StatCard
           icon={Activity}
           label="Posições ativas"
-          value={<span className="text-xl font-mono">{stats.activeHoldings}</span>}
+          value={<span className="text-xl font-mono">{s.activeHoldings}</span>}
         />
         <StatCard
           icon={RefreshCw}
           label="Último preço"
           value={
             <span className="text-sm font-mono text-muted-foreground">
-              {formatDateTime(stats.lastPriceUpdate)}
+              {formatDateTime(s.lastPriceUpdate)}
             </span>
           }
         />

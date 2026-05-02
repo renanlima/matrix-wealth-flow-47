@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -49,22 +49,18 @@ function ClientDocuments() {
 interface Contract { id: string; file_path: string; version: number; is_active: boolean; signed_date: string | null; notes: string | null; }
 function ContractsList() {
   const { user } = useAuth();
-  const [rows, setRows] = useState<Contract[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!user) return;
-    (async () => {
-      setLoading(true);
+  const { data: rows = [], isLoading: loading } = useQuery({
+    queryKey: ["client", "contracts", user?.id],
+    queryFn: async () => {
       const { data } = await supabase
         .from("contracts")
         .select("id, file_path, version, is_active, signed_date, notes")
-        .eq("client_id", user.id)
+        .eq("client_id", user!.id)
         .order("version", { ascending: false });
-      setRows((data as Contract[]) ?? []);
-      setLoading(false);
-    })();
-  }, [user]);
+      return (data as Contract[]) ?? [];
+    },
+    enabled: !!user,
+  });
 
   return (
     <Card>
@@ -104,22 +100,18 @@ function ContractsList() {
 interface Receipt { id: string; file_path: string; receipt_date: string | null; amount_usd: number | null; notes: string | null; }
 function ReceiptsList() {
   const { user } = useAuth();
-  const [rows, setRows] = useState<Receipt[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!user) return;
-    (async () => {
-      setLoading(true);
+  const { data: rows = [], isLoading: loading } = useQuery({
+    queryKey: ["client", "receipts", user?.id],
+    queryFn: async () => {
       const { data } = await supabase
         .from("receipts")
         .select("id, file_path, receipt_date, amount_usd, notes")
-        .eq("client_id", user.id)
+        .eq("client_id", user!.id)
         .order("receipt_date", { ascending: false });
-      setRows((data as Receipt[]) ?? []);
-      setLoading(false);
-    })();
-  }, [user]);
+      return (data as Receipt[]) ?? [];
+    },
+    enabled: !!user,
+  });
 
   return (
     <Card>
@@ -154,22 +146,18 @@ function ReceiptsList() {
 interface Invoice { id: string; file_path: string; periodo_inicio: string | null; periodo_fim: string | null; notes: string | null; }
 function InvoicesList() {
   const { user } = useAuth();
-  const [rows, setRows] = useState<Invoice[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!user) return;
-    (async () => {
-      setLoading(true);
+  const { data: rows = [], isLoading: loading } = useQuery({
+    queryKey: ["client", "invoices", user?.id],
+    queryFn: async () => {
       const { data } = await supabase
         .from("invoices")
         .select("id, file_path, periodo_inicio, periodo_fim, notes")
-        .eq("client_id", user.id)
+        .eq("client_id", user!.id)
         .order("periodo_fim", { ascending: false });
-      setRows((data as Invoice[]) ?? []);
-      setLoading(false);
-    })();
-  }, [user]);
+      return (data as Invoice[]) ?? [];
+    },
+    enabled: !!user,
+  });
 
   return (
     <Card>
