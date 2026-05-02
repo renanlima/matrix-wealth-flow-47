@@ -33,6 +33,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import { cn } from "@/lib/utils";
+import { OnboardingGuide } from "@/components/admin/OnboardingGuide";
 
 export const Route = createFileRoute("/admin/")({
   component: AdminDashboard,
@@ -57,6 +58,10 @@ interface Stats {
   cashFlow90d: { date: string; deposits: number; withdrawals: number }[];
   topMovers: { client: string; coin: string; pnl: number; pct: number }[];
   inactiveClients: number;
+  firstClientId: string | null;
+  firstFundId: string | null;
+  hasDeposit: boolean;
+  pricesFresh: boolean;
 }
 
 async function fetchAdminStats(): Promise<Stats> {
@@ -248,6 +253,13 @@ async function fetchAdminStats(): Promise<Stats> {
     cashFlow90d,
     topMovers,
     inactiveClients,
+    firstClientId: (clients ?? [])[0]?.id ?? null,
+    firstFundId:
+      (funds ?? []).find((f) => f.client_id === (clients ?? [])[0]?.id)?.id ??
+      (funds ?? [])[0]?.id ??
+      null,
+    hasDeposit: (deposits ?? []).length > 0,
+    pricesFresh: (prices ?? []).length > 0 && staleCoins === 0,
   };
 }
 
@@ -284,6 +296,20 @@ function AdminDashboard() {
           </Button>
         </div>
       </div>
+
+      {s && (
+        <OnboardingGuide
+          state={{
+            hasClient: s.clientCount > 0,
+            hasFund: !!s.firstFundId,
+            hasDeposit: s.hasDeposit,
+            hasHolding: s.activeHoldings > 0,
+            pricesFresh: s.pricesFresh,
+            firstClientId: s.firstClientId,
+            firstFundId: s.firstFundId,
+          }}
+        />
+      )}
 
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

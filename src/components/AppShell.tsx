@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { Button } from "@/components/ui/button";
-import { LogOut, DollarSign } from "lucide-react";
+import { LogOut, DollarSign, HelpCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import matrixLogo from "@/assets/matrix-logo.png";
 
@@ -90,6 +90,23 @@ export function AppShell({ navItems, basePath, children, title }: AppShellProps)
             <img src={matrixLogo} alt="Matrix Digital Assets" className="h-8 w-auto object-contain" />
           </div>
           <div className="flex-1" />
+          {profile?.role === "admin" && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                localStorage.removeItem("admin_onboarding_dismissed");
+                window.dispatchEvent(new CustomEvent("reopen-onboarding"));
+                if (location.pathname !== "/admin") navigate({ to: "/admin" });
+              }}
+              aria-label="Abrir guia inicial"
+              title="Guia inicial"
+              className="gap-1.5"
+            >
+              <HelpCircle className="h-4 w-4" />
+              <span className="hidden sm:inline text-xs">Guia</span>
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
