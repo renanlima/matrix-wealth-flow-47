@@ -28,6 +28,10 @@ import { Money } from "@/components/Money";
 import { Plus, ChevronLeft, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/format";
+import { FixedIncomeTab } from "@/components/admin/FixedIncomeTab";
+import { FuturesTab } from "@/components/admin/FuturesTab";
+import { DocumentsTab } from "@/components/admin/DocumentsTab";
+import { PerformanceTab } from "@/components/admin/PerformanceTab";
 
 export const Route = createFileRoute("/admin/clientes/$clientId/")({
   component: ClientDetail,
@@ -101,16 +105,16 @@ function ClientDetail() {
           <CashTab clientId={clientId} />
         </TabsContent>
         <TabsContent value="rendimentos" className="mt-4">
-          <ComingSoon label="Rendimentos alternativos" />
+          <FixedIncomeTab clientId={clientId} />
         </TabsContent>
         <TabsContent value="futuros" className="mt-4">
-          <ComingSoon label="Mercado futuro" />
+          <FuturesTab clientId={clientId} />
         </TabsContent>
         <TabsContent value="docs" className="mt-4">
-          <ComingSoon label="Documentos (NFs, Contratos, Recibos)" />
+          <DocumentsTab clientId={clientId} />
         </TabsContent>
         <TabsContent value="performance" className="mt-4">
-          <ComingSoon label="Performance mensal" />
+          <PerformanceTab clientId={clientId} />
         </TabsContent>
       </Tabs>
     </div>
@@ -124,7 +128,7 @@ function ComingSoon({ label }: { label: string }) {
         <span className="font-mono uppercase text-xs tracking-wider text-primary/70">
           Em breve
         </span>
-        <div className="mt-2">{label} — implementado na próxima fase.</div>
+        <div className="mt-2">{label} — em desenvolvimento.</div>
       </CardContent>
     </Card>
   );
