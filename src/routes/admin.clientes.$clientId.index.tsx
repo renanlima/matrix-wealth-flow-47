@@ -444,6 +444,29 @@ function CashTab({ clientId }: { clientId: string }) {
           </Table>
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!pendingDelete} onOpenChange={(o) => !o && setPendingDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover lançamento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingDelete && (
+                <>
+                  Esta ação remove o {pendingDelete.type === "deposit" ? "depósito" : "saque"} de{" "}
+                  <span className="font-mono">${pendingDelete.amount_usd.toFixed(2)}</span> de{" "}
+                  {formatDate(pendingDelete.date)}. Não pode ser desfeita.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmRemove} className="bg-destructive hover:bg-destructive/90">
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
