@@ -443,7 +443,7 @@ function CashDialog({
     const dateField = type === "deposit" ? "deposit_date" : "withdraw_date";
     const { error } = await supabase.from(tbl).insert({
       client_id: clientId,
-      amount_usd: Number(amount),
+      amount_usd: parseUsdInput(amount),
       [dateField]: date,
       notes: notes || null,
     } as any);
