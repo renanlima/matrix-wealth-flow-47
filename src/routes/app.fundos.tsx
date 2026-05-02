@@ -86,7 +86,10 @@ function ClientFunds() {
       )}
 
       {funds.map((f) => {
-        const fundHoldings = holdings.filter((h) => h.fund_id === f.id);
+        const allFundHoldings = holdings.filter((h) => h.fund_id === f.id);
+        const fundHoldings = showClosed
+          ? allFundHoldings
+          : allFundHoldings.filter((h) => h.status === "ativa");
         const totalCost = fundHoldings.reduce((s, h) => s + Number(h.quantity) * Number(h.entry_price_usd), 0);
         const totalMarket = fundHoldings.filter((h) => h.status === "ativa").reduce((s, h) => {
           const cur = prices.get(h.coin_symbol.toUpperCase()) ?? 0;
