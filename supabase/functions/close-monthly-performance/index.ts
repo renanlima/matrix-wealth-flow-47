@@ -15,12 +15,7 @@
 //   base_calculo      = lucro_bruto + deficit_anterior
 //   se base_calculo > 0: taxa_aplicada = base × performance_fee_pct/100; novo_deficit = 0
 //   senão:               taxa_aplicada = 0; novo_deficit = base_calculo
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders, jobRun } from "../_shared/job-runner.ts";
 
 interface RunBody {
   year?: number;
