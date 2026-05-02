@@ -368,10 +368,14 @@ function CashTab({ clientId }: { clientId: string }) {
   const totalWithdraws = deposits.filter((e) => e.type === "withdraw").reduce((s, e) => s + e.amount_usd, 0);
   const cashBalance = totalDeposits - totalWithdraws - holdingsCost + realizationsTotal;
 
-  const remove = async (entry: CashEntry) => {
-    if (!confirm("Remover este lançamento?")) return;
+  const [pendingDelete, setPendingDelete] = useState<CashEntry | null>(null);
+
+  const confirmRemove = async () => {
+    if (!pendingDelete) return;
+    const entry = pendingDelete;
     const tbl = entry.type === "deposit" ? "deposits" : "withdrawals";
     const { error } = await supabase.from(tbl).delete().eq("id", entry.id);
+    setPendingDelete(null);
     if (error) toast.error(error.message);
     else {
       toast.success("Lançamento removido");
