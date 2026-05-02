@@ -28,7 +28,7 @@ import {
 import { Money } from "@/components/Money";
 import { Plus, ChevronLeft, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { formatDate } from "@/lib/format";
+import { formatDate, parseUsdInput } from "@/lib/format";
 import { FixedIncomeTab } from "@/components/admin/FixedIncomeTab";
 import { FuturesTab } from "@/components/admin/FuturesTab";
 import { DocumentsTab } from "@/components/admin/DocumentsTab";
