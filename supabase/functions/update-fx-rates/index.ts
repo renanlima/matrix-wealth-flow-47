@@ -1,61 +1,47 @@
 // Edge function: update-fx-rates
-// Fetches USD/BRL rate from a free public API and upserts into fx_rates.
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+// Fetches USD/BRL rate from public APIs and upserts into fx_rates.
+// Instrumentado com job_runs.
+import { corsHeaders, jobRun, retryWithBackoff } from "../_shared/job-runner.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-  const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const admin = createClient(SUPABASE_URL, SERVICE_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-
-  // exchangerate.host is free and key-less
-  let rate: number | null = null;
-  try {
-    const res = await fetch("https://api.exchangerate.host/latest?base=USD&symbols=BRL");
-    const json = await res.json();
-    rate = json?.rates?.BRL ?? null;
-  } catch (e) {
-    console.error("FX fetch failed", e);
-  }
-
-  // Fallback: open.er-api.com
-  if (!rate) {
+  return jobRun("update-fx-rates", async (admin) => {
+    let rate: number | null = null;
     try {
-      const res = await fetch("https://open.er-api.com/v6/latest/USD");
-      const json = await res.json();
-      rate = json?.rates?.BRL ?? null;
+      rate = await retryWithBackoff(async () => {
+        const res = await fetch("https://api.exchangerate.host/latest?base=USD&symbols=BRL");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        const r = json?.rates?.BRL;
+        if (typeof r !== "number") throw new Error("Missing BRL rate");
+        return r;
+      });
     } catch (e) {
-      console.error("FX fallback failed", e);
+      console.error("Primary FX failed", e);
     }
-  }
 
-  if (!rate || typeof rate !== "number") {
-    return new Response(JSON.stringify({ error: "Could not fetch USD/BRL rate" }), {
-      status: 502,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+    if (!rate) {
+      try {
+        const res = await fetch("https://open.er-api.com/v6/latest/USD");
+        const json = await res.json();
+        rate = typeof json?.rates?.BRL === "number" ? json.rates.BRL : null;
+      } catch (e) {
+        console.error("Fallback FX failed", e);
+      }
+    }
 
-  const { error } = await admin
-    .from("fx_rates")
-    .upsert({ pair: "USD/BRL", rate, updated_at: new Date().toISOString() }, { onConflict: "pair" });
+    if (!rate) {
+      return { status: "failed", message: "Could not fetch USD/BRL", items_failed: 1 };
+    }
 
-  if (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+    const { error } = await admin
+      .from("fx_rates")
+      .upsert({ pair: "USD/BRL", rate, updated_at: new Date().toISOString() }, { onConflict: "pair" });
 
-  return new Response(JSON.stringify({ pair: "USD/BRL", rate }), {
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    if (error) {
+      return { status: "failed", message: error.message, items_failed: 1 };
+    }
+    return { status: "success", items_processed: 1, payload: { pair: "USD/BRL", rate } };
   });
 });

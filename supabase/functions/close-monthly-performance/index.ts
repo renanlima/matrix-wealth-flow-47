@@ -15,12 +15,7 @@
 //   base_calculo      = lucro_bruto + deficit_anterior
 //   se base_calculo > 0: taxa_aplicada = base × performance_fee_pct/100; novo_deficit = 0
 //   senão:               taxa_aplicada = 0; novo_deficit = base_calculo
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders, jobRun } from "../_shared/job-runner.ts";
 
 interface RunBody {
   year?: number;
@@ -68,35 +63,23 @@ function fixedIncomeAccrued(
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-  const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const admin = createClient(SUPABASE_URL, SERVICE_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-
   let body: RunBody = {};
   if (req.method === "POST") {
-    try {
-      body = (await req.json()) as RunBody;
-    } catch {
-      body = {};
+    try { body = (await req.json()) as RunBody; } catch { body = {}; }
+  }
+
+  return jobRun("close-monthly-performance", async (admin) => {
+    const target = body.year && body.month ? { year: body.year, month: body.month } : previousMonth();
+    const { startISO, endExclusiveISO, endLastDayISO } = monthBoundsISO(target.year, target.month);
+
+    // Buscar fundos ativos
+    const { data: funds, error: fErr } = await admin
+      .from("funds")
+      .select("id, performance_fee_pct, carried_deficit_usd")
+      .eq("status", "ativo");
+    if (fErr) {
+      return { status: "failed", message: fErr.message };
     }
-  }
-
-  const target = body.year && body.month ? { year: body.year, month: body.month } : previousMonth();
-  const { startISO, endExclusiveISO, endLastDayISO } = monthBoundsISO(target.year, target.month);
-
-  // Buscar fundos ativos
-  const { data: funds, error: fErr } = await admin
-    .from("funds")
-    .select("id, performance_fee_pct, carried_deficit_usd")
-    .eq("status", "ativo");
-  if (fErr) {
-    return new Response(JSON.stringify({ error: fErr.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
 
   // Tabela de preços (snapshot atual)
   const { data: pricesData } = await admin.from("coin_prices").select("symbol, price_usd");
@@ -266,8 +249,14 @@ Deno.serve(async (req) => {
     results.push({ fund_id: fund.id, status: "closed", taxa_aplicada: taxaAplicada });
   }
 
-  return new Response(
-    JSON.stringify({ target, processed: results.length, results }),
-    { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-  );
+    const failed = results.filter((r) => String(r.status).includes("error") || String(r.status).includes("failed")).length;
+    const status = failed === 0 ? "success" : (failed === results.length ? "failed" : "partial");
+    return {
+      status,
+      items_processed: results.length - failed,
+      items_failed: failed,
+      payload: { target, processed: results.length, results },
+    };
+  });
 });
+
