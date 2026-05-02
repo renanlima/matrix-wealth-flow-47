@@ -465,7 +465,7 @@ function RealizeDialog({ holding, onDone }: { holding: Holding; onDone: () => vo
     setSubmitting(true);
     const { error: rErr } = await supabase.from("realizations").insert({
       holding_id: holding.id,
-      exit_price_usd: Number(exitPrice),
+      exit_price_usd: exitPriceNum,
       exit_date: date,
       total_usd: total,
       profit_usd: profit,
