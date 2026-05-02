@@ -63,35 +63,23 @@ function fixedIncomeAccrued(
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-  const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const admin = createClient(SUPABASE_URL, SERVICE_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-
   let body: RunBody = {};
   if (req.method === "POST") {
-    try {
-      body = (await req.json()) as RunBody;
-    } catch {
-      body = {};
+    try { body = (await req.json()) as RunBody; } catch { body = {}; }
+  }
+
+  return jobRun("close-monthly-performance", async (admin) => {
+    const target = body.year && body.month ? { year: body.year, month: body.month } : previousMonth();
+    const { startISO, endExclusiveISO, endLastDayISO } = monthBoundsISO(target.year, target.month);
+
+    // Buscar fundos ativos
+    const { data: funds, error: fErr } = await admin
+      .from("funds")
+      .select("id, performance_fee_pct, carried_deficit_usd")
+      .eq("status", "ativo");
+    if (fErr) {
+      return { status: "failed", message: fErr.message };
     }
-  }
-
-  const target = body.year && body.month ? { year: body.year, month: body.month } : previousMonth();
-  const { startISO, endExclusiveISO, endLastDayISO } = monthBoundsISO(target.year, target.month);
-
-  // Buscar fundos ativos
-  const { data: funds, error: fErr } = await admin
-    .from("funds")
-    .select("id, performance_fee_pct, carried_deficit_usd")
-    .eq("status", "ativo");
-  if (fErr) {
-    return new Response(JSON.stringify({ error: fErr.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
 
   // Tabela de preços (snapshot atual)
   const { data: pricesData } = await admin.from("coin_prices").select("symbol, price_usd");
