@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_log: {
+        Row: {
+          action: string
+          actor_email: string | null
+          actor_id: string | null
+          after: Json | null
+          before: Json | null
+          client_id: string | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string
+          id: string
+        }
+        Insert: {
+          action: string
+          actor_email?: string | null
+          actor_id?: string | null
+          after?: Json | null
+          before?: Json | null
+          client_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+        }
+        Update: {
+          action?: string
+          actor_email?: string | null
+          actor_id?: string | null
+          after?: Json | null
+          before?: Json | null
+          client_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+        }
+        Relationships: []
+      }
       clients: {
         Row: {
           created_at: string
@@ -45,6 +84,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      coin_price_errors: {
+        Row: {
+          error_message: string
+          id: string
+          occurred_at: string
+          symbol: string
+        }
+        Insert: {
+          error_message: string
+          id?: string
+          occurred_at?: string
+          symbol: string
+        }
+        Update: {
+          error_message?: string
+          id?: string
+          occurred_at?: string
+          symbol?: string
+        }
+        Relationships: []
       }
       coin_prices: {
         Row: {
@@ -416,6 +476,42 @@ export type Database = {
           },
         ]
       }
+      job_runs: {
+        Row: {
+          created_at: string
+          finished_at: string | null
+          id: string
+          items_failed: number | null
+          items_processed: number | null
+          job_name: string
+          message: string | null
+          started_at: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          items_failed?: number | null
+          items_processed?: number | null
+          job_name: string
+          message?: string | null
+          started_at?: string
+          status: string
+        }
+        Update: {
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          items_failed?: number | null
+          items_processed?: number | null
+          job_name?: string
+          message?: string | null
+          started_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
       mural_posts: {
         Row: {
           created_at: string
@@ -542,6 +638,27 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
+        }
+        Relationships: []
+      }
+      rate_limit_log: {
+        Row: {
+          action: string
+          id: string
+          occurred_at: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          id?: string
+          occurred_at?: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          id?: string
+          occurred_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -764,6 +881,10 @@ export type Database = {
       }
     }
     Functions: {
+      check_rate_limit: {
+        Args: { _action: string; _max_per_minute?: number }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
