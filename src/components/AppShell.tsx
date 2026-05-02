@@ -1,8 +1,9 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { useDemo } from "@/contexts/DemoContext";
 import { Button } from "@/components/ui/button";
-import { LogOut, DollarSign, HelpCircle } from "lucide-react";
+import { LogOut, DollarSign, HelpCircle, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import matrixLogo from "@/assets/matrix-logo.png";
 
@@ -22,6 +23,7 @@ interface AppShellProps {
 export function AppShell({ navItems, basePath, children, title }: AppShellProps) {
   const { profile, signOut } = useAuth();
   const { currency, toggle } = useCurrency();
+  const { demo, disable: disableDemo } = useDemo();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -90,6 +92,19 @@ export function AppShell({ navItems, basePath, children, title }: AppShellProps)
             <img src={matrixLogo} alt="Matrix Digital Assets" className="h-8 w-auto object-contain" />
           </div>
           <div className="flex-1" />
+          {demo && profile?.role === "admin" && (
+            <button
+              type="button"
+              onClick={() => {
+                disableDemo();
+              }}
+              title="Desativar modo demo"
+              className="inline-flex items-center gap-1.5 rounded-md border border-warning/40 bg-warning/10 px-2.5 py-1 text-xs font-mono text-warning hover:bg-warning/20 transition-colors animate-pulse"
+            >
+              <Sparkles className="h-3 w-3" />
+              MODO DEMO
+            </button>
+          )}
           {profile?.role === "admin" && (
             <Button
               variant="ghost"

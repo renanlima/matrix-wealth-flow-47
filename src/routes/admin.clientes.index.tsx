@@ -28,6 +28,8 @@ import { Plus, Loader2, Search, ArrowUp, ArrowDown, ChevronRight, Users } from "
 import { toast } from "sonner";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useDemo } from "@/contexts/DemoContext";
+import { getDemoClients } from "@/lib/demo-data";
 
 export const Route = createFileRoute("/admin/clientes/")({
   component: ClientList,
@@ -67,14 +69,15 @@ type SortDir = "asc" | "desc";
 
 function ClientList() {
   const navigate = useNavigate();
+  const { demo, seed } = useDemo();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("created_at");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   const { data: rows = [], isLoading: loading, refetch } = useQuery({
-    queryKey: ["admin", "clients"],
-    queryFn: fetchClients,
+    queryKey: ["admin", "clients", { demo, seed }],
+    queryFn: async () => (demo ? (getDemoClients(seed) as ClientRow[]) : await fetchClients()),
   });
 
   const filtered = useMemo(() => {

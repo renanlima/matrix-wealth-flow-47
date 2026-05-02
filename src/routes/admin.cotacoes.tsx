@@ -16,6 +16,8 @@ import { RefreshCw, Loader2 } from "lucide-react";
 import { Money, Pct } from "@/components/Money";
 import { formatDateTime } from "@/lib/format";
 import { toast } from "sonner";
+import { useDemo } from "@/contexts/DemoContext";
+import { getDemoPrices } from "@/lib/demo-data";
 
 export const Route = createFileRoute("/admin/cotacoes")({
   component: PricesAdmin,
@@ -33,10 +35,12 @@ function PricesAdmin() {
   const [loadingCoins, setLoadingCoins] = useState(false);
   const [loadingFx, setLoadingFx] = useState(false);
   const [loadingFi, setLoadingFi] = useState(false);
+  const { demo, seed } = useDemo();
 
   const { data, refetch } = useQuery({
-    queryKey: ["admin", "prices"],
+    queryKey: ["admin", "prices", { demo, seed }],
     queryFn: async () => {
+      if (demo) return getDemoPrices(seed);
       const [{ data: p }, { data: fx }] = await Promise.all([
         supabase.from("coin_prices").select("*").order("symbol"),
         supabase.from("fx_rates").select("rate, updated_at").eq("pair", "USD/BRL").maybeSingle(),
