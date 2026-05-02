@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState, useCallback } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,24 +30,28 @@ interface Price {
 }
 
 function PricesAdmin() {
-  const [prices, setPrices] = useState<Price[]>([]);
-  const [fxRate, setFxRate] = useState<{ rate: number; updated_at: string } | null>(null);
   const [loadingCoins, setLoadingCoins] = useState(false);
   const [loadingFx, setLoadingFx] = useState(false);
   const [loadingFi, setLoadingFi] = useState(false);
 
-  const load = useCallback(async () => {
-    const [{ data: p }, { data: fx }] = await Promise.all([
-      supabase.from("coin_prices").select("*").order("symbol"),
-      supabase.from("fx_rates").select("rate, updated_at").eq("pair", "USD/BRL").maybeSingle(),
-    ]);
-    setPrices((p as Price[]) ?? []);
-    setFxRate(fx ? { rate: Number(fx.rate), updated_at: fx.updated_at } : null);
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  const { data, refetch } = useQuery({
+    queryKey: ["admin", "prices"],
+    queryFn: async () => {
+      const [{ data: p }, { data: fx }] = await Promise.all([
+        supabase.from("coin_prices").select("*").order("symbol"),
+        supabase.from("fx_rates").select("rate, updated_at").eq("pair", "USD/BRL").maybeSingle(),
+      ]);
+      return {
+        prices: (p as Price[]) ?? [],
+        fxRate: fx ? { rate: Number(fx.rate), updated_at: fx.updated_at } : null,
+      };
+    },
+  });
+  const prices = data?.prices ?? [];
+  const fxRate = data?.fxRate ?? null;
+  const load = () => {
+    refetch();
+  };
 
   const refreshCoins = async () => {
     setLoadingCoins(true);
