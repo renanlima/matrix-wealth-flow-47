@@ -14,16 +14,647 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      clients: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clients_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coin_prices: {
+        Row: {
+          name: string | null
+          percent_change_24h: number | null
+          price_usd: number
+          symbol: string
+          updated_at: string
+        }
+        Insert: {
+          name?: string | null
+          percent_change_24h?: number | null
+          price_usd: number
+          symbol: string
+          updated_at?: string
+        }
+        Update: {
+          name?: string | null
+          percent_change_24h?: number | null
+          price_usd?: number
+          symbol?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      contracts: {
+        Row: {
+          client_id: string
+          created_at: string
+          file_path: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          signed_date: string | null
+          version: number
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          file_path: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          signed_date?: string | null
+          version?: number
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          file_path?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          signed_date?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contracts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deposits: {
+        Row: {
+          amount_usd: number
+          client_id: string
+          created_at: string
+          deposit_date: string
+          id: string
+          notes: string | null
+        }
+        Insert: {
+          amount_usd: number
+          client_id: string
+          created_at?: string
+          deposit_date?: string
+          id?: string
+          notes?: string | null
+        }
+        Update: {
+          amount_usd?: number
+          client_id?: string
+          created_at?: string
+          deposit_date?: string
+          id?: string
+          notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deposits_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fixed_income: {
+        Row: {
+          asset_symbol: string | null
+          created_at: string
+          data_registro: string
+          data_saida: string | null
+          fund_id: string
+          id: string
+          last_price_update_at: string | null
+          notes: string | null
+          preco_entrada_usd: number | null
+          product_name: string
+          taxa_anual_pct: number
+          ultimo_preco_usd: number | null
+          updated_at: string
+          valor_aplicado_usd: number
+        }
+        Insert: {
+          asset_symbol?: string | null
+          created_at?: string
+          data_registro: string
+          data_saida?: string | null
+          fund_id: string
+          id?: string
+          last_price_update_at?: string | null
+          notes?: string | null
+          preco_entrada_usd?: number | null
+          product_name: string
+          taxa_anual_pct: number
+          ultimo_preco_usd?: number | null
+          updated_at?: string
+          valor_aplicado_usd: number
+        }
+        Update: {
+          asset_symbol?: string | null
+          created_at?: string
+          data_registro?: string
+          data_saida?: string | null
+          fund_id?: string
+          id?: string
+          last_price_update_at?: string | null
+          notes?: string | null
+          preco_entrada_usd?: number | null
+          product_name?: string
+          taxa_anual_pct?: number
+          ultimo_preco_usd?: number | null
+          updated_at?: string
+          valor_aplicado_usd?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fixed_income_fund_id_fkey"
+            columns: ["fund_id"]
+            isOneToOne: false
+            referencedRelation: "funds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      funds: {
+        Row: {
+          carried_deficit_usd: number
+          client_id: string
+          created_at: string
+          end_date: string | null
+          id: string
+          name: string
+          notes: string | null
+          performance_fee_pct: number
+          start_date: string
+          status: Database["public"]["Enums"]["fund_status"]
+          updated_at: string
+        }
+        Insert: {
+          carried_deficit_usd?: number
+          client_id: string
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          performance_fee_pct?: number
+          start_date?: string
+          status?: Database["public"]["Enums"]["fund_status"]
+          updated_at?: string
+        }
+        Update: {
+          carried_deficit_usd?: number
+          client_id?: string
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          performance_fee_pct?: number
+          start_date?: string
+          status?: Database["public"]["Enums"]["fund_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funds_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      futures_records: {
+        Row: {
+          client_id: string
+          created_at: string
+          description: string | null
+          file_path: string | null
+          file_type: string | null
+          id: string
+          title: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          description?: string | null
+          file_path?: string | null
+          file_type?: string | null
+          id?: string
+          title: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          description?: string | null
+          file_path?: string | null
+          file_type?: string | null
+          id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "futures_records_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fx_rates: {
+        Row: {
+          pair: string
+          rate: number
+          updated_at: string
+        }
+        Insert: {
+          pair: string
+          rate: number
+          updated_at?: string
+        }
+        Update: {
+          pair?: string
+          rate?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      holdings: {
+        Row: {
+          coin_name: string | null
+          coin_symbol: string
+          created_at: string
+          entry_price_usd: number
+          fund_id: string
+          id: string
+          is_futures: boolean
+          notes: string | null
+          purchase_date: string
+          quantity: number
+          status: Database["public"]["Enums"]["holding_status"]
+          updated_at: string
+        }
+        Insert: {
+          coin_name?: string | null
+          coin_symbol: string
+          created_at?: string
+          entry_price_usd: number
+          fund_id: string
+          id?: string
+          is_futures?: boolean
+          notes?: string | null
+          purchase_date?: string
+          quantity: number
+          status?: Database["public"]["Enums"]["holding_status"]
+          updated_at?: string
+        }
+        Update: {
+          coin_name?: string | null
+          coin_symbol?: string
+          created_at?: string
+          entry_price_usd?: number
+          fund_id?: string
+          id?: string
+          is_futures?: boolean
+          notes?: string | null
+          purchase_date?: string
+          quantity?: number
+          status?: Database["public"]["Enums"]["holding_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "holdings_fund_id_fkey"
+            columns: ["fund_id"]
+            isOneToOne: false
+            referencedRelation: "funds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoices: {
+        Row: {
+          client_id: string
+          created_at: string
+          file_path: string
+          id: string
+          notes: string | null
+          periodo_fim: string | null
+          periodo_inicio: string | null
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          file_path: string
+          id?: string
+          notes?: string | null
+          periodo_fim?: string | null
+          periodo_inicio?: string | null
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          file_path?: string
+          id?: string
+          notes?: string | null
+          periodo_fim?: string | null
+          periodo_inicio?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mural_posts: {
+        Row: {
+          created_at: string
+          file_path: string
+          file_type: string
+          id: string
+          period_month: number
+          period_year: number
+          published_at: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          file_path: string
+          file_type: string
+          id?: string
+          period_month: number
+          period_year: number
+          published_at?: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          file_path?: string
+          file_type?: string
+          id?: string
+          period_month?: number
+          period_year?: number
+          published_at?: string
+          title?: string
+        }
+        Relationships: []
+      }
+      performance_history: {
+        Row: {
+          alocacoes_usd: number
+          base_calculo_usd: number
+          created_at: string
+          deficit_anterior_usd: number
+          desalocacoes_usd: number
+          fechado_em: string | null
+          fund_id: string
+          id: string
+          lucro_bruto_usd: number
+          month: number
+          novo_deficit_usd: number
+          patrimonio_fim_usd: number
+          patrimonio_inicio_usd: number
+          taxa_aplicada_usd: number
+          year: number
+        }
+        Insert: {
+          alocacoes_usd?: number
+          base_calculo_usd?: number
+          created_at?: string
+          deficit_anterior_usd?: number
+          desalocacoes_usd?: number
+          fechado_em?: string | null
+          fund_id: string
+          id?: string
+          lucro_bruto_usd?: number
+          month: number
+          novo_deficit_usd?: number
+          patrimonio_fim_usd?: number
+          patrimonio_inicio_usd?: number
+          taxa_aplicada_usd?: number
+          year: number
+        }
+        Update: {
+          alocacoes_usd?: number
+          base_calculo_usd?: number
+          created_at?: string
+          deficit_anterior_usd?: number
+          desalocacoes_usd?: number
+          fechado_em?: string | null
+          fund_id?: string
+          id?: string
+          lucro_bruto_usd?: number
+          month?: number
+          novo_deficit_usd?: number
+          patrimonio_fim_usd?: number
+          patrimonio_inicio_usd?: number
+          taxa_aplicada_usd?: number
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "performance_history_fund_id_fkey"
+            columns: ["fund_id"]
+            isOneToOne: false
+            referencedRelation: "funds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id: string
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      realizations: {
+        Row: {
+          created_at: string
+          exit_date: string
+          exit_price_usd: number
+          holding_id: string
+          id: string
+          notes: string | null
+          profit_usd: number
+          total_usd: number
+        }
+        Insert: {
+          created_at?: string
+          exit_date?: string
+          exit_price_usd: number
+          holding_id: string
+          id?: string
+          notes?: string | null
+          profit_usd: number
+          total_usd: number
+        }
+        Update: {
+          created_at?: string
+          exit_date?: string
+          exit_price_usd?: number
+          holding_id?: string
+          id?: string
+          notes?: string | null
+          profit_usd?: number
+          total_usd?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "realizations_holding_id_fkey"
+            columns: ["holding_id"]
+            isOneToOne: false
+            referencedRelation: "holdings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      receipts: {
+        Row: {
+          amount_usd: number | null
+          client_id: string
+          created_at: string
+          file_path: string
+          id: string
+          notes: string | null
+          receipt_date: string | null
+        }
+        Insert: {
+          amount_usd?: number | null
+          client_id: string
+          created_at?: string
+          file_path: string
+          id?: string
+          notes?: string | null
+          receipt_date?: string | null
+        }
+        Update: {
+          amount_usd?: number | null
+          client_id?: string
+          created_at?: string
+          file_path?: string
+          id?: string
+          notes?: string | null
+          receipt_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receipts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      withdrawals: {
+        Row: {
+          amount_usd: number
+          client_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          withdraw_date: string
+        }
+        Insert: {
+          amount_usd: number
+          client_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          withdraw_date?: string
+        }
+        Update: {
+          amount_usd?: number
+          client_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          withdraw_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "withdrawals_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "client"
+      fund_status: "ativo" | "encerrado"
+      holding_status: "ativa" | "encerrada"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +781,10 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "client"],
+      fund_status: ["ativo", "encerrado"],
+      holding_status: ["ativa", "encerrada"],
+    },
   },
 } as const
