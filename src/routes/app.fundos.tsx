@@ -153,3 +153,14 @@ function ClientFunds() {
     </div>
   );
 }
+
+function SummaryCard({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <Card className="border-primary/10">
+      <CardContent className="p-3">
+        <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">{label}</div>
+        {value}
+      </CardContent>
+    </Card>
+  );
+}
