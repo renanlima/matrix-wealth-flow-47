@@ -249,8 +249,14 @@ Deno.serve(async (req) => {
     results.push({ fund_id: fund.id, status: "closed", taxa_aplicada: taxaAplicada });
   }
 
-  return new Response(
-    JSON.stringify({ target, processed: results.length, results }),
-    { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-  );
+    const failed = results.filter((r) => String(r.status).includes("error") || String(r.status).includes("failed")).length;
+    const status = failed === 0 ? "success" : (failed === results.length ? "failed" : "partial");
+    return {
+      status,
+      items_processed: results.length - failed,
+      items_failed: failed,
+      payload: { target, processed: results.length, results },
+    };
+  });
 });
+
