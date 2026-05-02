@@ -474,11 +474,10 @@ function CashDialog({
         <form onSubmit={submit} className="space-y-3">
           <div className="space-y-1.5">
             <Label>Valor (USD) *</Label>
-            <Input
-              type="number"
-              step="0.01"
+            <MoneyInput
+              decimals={2}
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              onValueChange={(display) => setAmount(display)}
               required
             />
           </div>
