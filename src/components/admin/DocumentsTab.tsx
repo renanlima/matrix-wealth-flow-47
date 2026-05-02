@@ -18,7 +18,7 @@ import { Plus, Trash2, Download, Loader2, FileText, Star } from "lucide-react";
 import { toast } from "sonner";
 import { Money } from "@/components/Money";
 import { uploadFile, getSignedUrl, removeFile, validateFile } from "@/lib/upload";
-import { formatDate } from "@/lib/format";
+import { formatDate, parseUsdInput } from "@/lib/format";
 
 export function DocumentsTab({ clientId }: { clientId: string }) {
   return (
