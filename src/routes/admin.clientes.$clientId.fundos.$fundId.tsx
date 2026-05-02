@@ -28,6 +28,16 @@ import { Money, CryptoQty, Pct } from "@/components/Money";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/format";
 
+interface PHRow {
+  id: string; year: number; month: number;
+  patrimonio_inicio_usd: number; patrimonio_fim_usd: number;
+  alocacoes_usd: number; desalocacoes_usd: number;
+  lucro_bruto_usd: number; base_calculo_usd: number;
+  taxa_aplicada_usd: number; novo_deficit_usd: number;
+  deficit_anterior_usd: number;
+}
+const MONTHS_PT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+
 export const Route = createFileRoute("/admin/clientes/$clientId/fundos/$fundId")({
   component: FundDetail,
 });
