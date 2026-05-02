@@ -71,24 +71,24 @@ function AdminDashboard() {
         <StatCard
           icon={Wallet}
           label="AUM total"
-          value={<Money usd={stats.aumUsd} className="text-xl text-glow text-primary" />}
+          value={<Money usd={s.aumUsd} className="text-xl text-glow text-primary" />}
         />
         <StatCard
           icon={Users}
           label="Clientes ativos"
-          value={<span className="text-xl font-mono">{stats.clientCount}</span>}
+          value={<span className="text-xl font-mono">{s.clientCount}</span>}
         />
         <StatCard
           icon={Activity}
           label="Posições ativas"
-          value={<span className="text-xl font-mono">{stats.activeHoldings}</span>}
+          value={<span className="text-xl font-mono">{s.activeHoldings}</span>}
         />
         <StatCard
           icon={RefreshCw}
           label="Último preço"
           value={
             <span className="text-sm font-mono text-muted-foreground">
-              {formatDateTime(stats.lastPriceUpdate)}
+              {formatDateTime(s.lastPriceUpdate)}
             </span>
           }
         />
