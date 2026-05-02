@@ -1,12 +1,16 @@
 // Geração de PDF a partir de um elemento DOM usando html2canvas + jspdf.
 // Multi-página automática com paginação proporcional.
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
+// As libs são carregadas sob demanda (lazy) para não pesar no bundle inicial.
 
 export async function generatePdfFromElement(
   element: HTMLElement,
   filename: string,
 ): Promise<void> {
+  const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+    import("jspdf"),
+    import("html2canvas"),
+  ]);
+
   const canvas = await html2canvas(element, {
     scale: 2,
     useCORS: true,
