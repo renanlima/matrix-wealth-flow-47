@@ -155,6 +155,128 @@ function ClientDetail() {
   );
 }
 
+function EditClientDialog({
+  open,
+  onOpenChange,
+  info,
+  onSaved,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  info: ClientInfo;
+  onSaved: () => void;
+}) {
+  const [form, setForm] = useState({
+    full_name: info.full_name ?? "",
+    email: info.email ?? "",
+    phone: info.phone ?? "",
+    notes: info.notes ?? "",
+    password: "",
+  });
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setForm({
+        full_name: info.full_name ?? "",
+        email: info.email ?? "",
+        phone: info.phone ?? "",
+        notes: info.notes ?? "",
+        password: "",
+      });
+    }
+  }, [open, info]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    const payload: Record<string, unknown> = {
+      client_id: info.id,
+      full_name: form.full_name,
+      email: form.email,
+      phone: form.phone || null,
+      notes: form.notes || null,
+    };
+    if (form.password.trim().length > 0) payload.password = form.password;
+
+    const { data, error } = await supabase.functions.invoke("update-client", { body: payload });
+    setSubmitting(false);
+    if (error || (data && (data as any).error)) {
+      toast.error("Erro ao salvar", {
+        description: error?.message ?? (data as any)?.error,
+      });
+      return;
+    }
+    toast.success("Cliente atualizado");
+    onOpenChange(false);
+    onSaved();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Editar cliente</DialogTitle>
+          <DialogDescription>
+            Atualize os dados de cadastro. Deixe a senha em branco para mantê-la.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="space-y-1.5">
+            <Label>Nome completo *</Label>
+            <Input
+              value={form.full_name}
+              onChange={(e) => setForm({ ...form, full_name: e.target.value })}
+              required
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Email *</Label>
+            <Input
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              required
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Telefone</Label>
+            <Input
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Nova senha</Label>
+            <Input
+              type="text"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              placeholder="Em branco = não alterar"
+              minLength={6}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Observações</Label>
+            <Textarea
+              rows={2}
+              value={form.notes}
+              onChange={(e) => setForm({ ...form, notes: e.target.value })}
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={submitting} className="glow-cyan">
+              {submitting ? "Salvando..." : "Salvar alterações"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 
 // ============= FUNDS TAB =============
