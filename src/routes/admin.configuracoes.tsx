@@ -1,11 +1,17 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Sparkles, RefreshCw, AlertTriangle } from "lucide-react";
+import { Sparkles, RefreshCw, AlertTriangle, ListChecks, RotateCcw } from "lucide-react";
 import { useDemo } from "@/contexts/DemoContext";
 import { toast } from "sonner";
+import { useEffect, useState } from "react";
+
+const RESET_KEY = "admin_onboarding_reset_at";
+const DISMISS_KEY = "admin_onboarding_dismissed";
+const RESET_EVENT = "reset-onboarding";
+const REOPEN_EVENT = "reopen-onboarding";
 
 export const Route = createFileRoute("/admin/configuracoes")({
   component: SettingsPage,
@@ -13,6 +19,37 @@ export const Route = createFileRoute("/admin/configuracoes")({
 
 function SettingsPage() {
   const { demo, toggle, reseed, seed } = useDemo();
+  const navigate = useNavigate();
+  const [resetAt, setResetAt] = useState<string | null>(() =>
+    typeof window === "undefined" ? null : localStorage.getItem(RESET_KEY),
+  );
+
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === RESET_KEY) setResetAt(e.newValue);
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  const handleResetGuide = () => {
+    const now = String(Date.now());
+    localStorage.setItem(RESET_KEY, now);
+    localStorage.removeItem(DISMISS_KEY);
+    setResetAt(now);
+    window.dispatchEvent(new CustomEvent(RESET_EVENT));
+    window.dispatchEvent(new CustomEvent(REOPEN_EVENT));
+    toast.success("Guia resetado", { description: "Todos os passos voltaram a aparecer como pendentes." });
+    navigate({ to: "/admin" });
+  };
+
+  const handleClearReset = () => {
+    localStorage.removeItem(RESET_KEY);
+    setResetAt(null);
+    window.dispatchEvent(new CustomEvent(RESET_EVENT));
+    toast.success("Progresso real restaurado");
+  };
+
 
   return (
     <div className="space-y-6 max-w-3xl">
