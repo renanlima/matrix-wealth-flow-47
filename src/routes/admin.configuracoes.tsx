@@ -134,6 +134,54 @@ function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      <Card className={resetAt ? "border-primary/40" : "border-border/60"}>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <ListChecks className="h-4 w-4 text-primary" />
+            Guia inicial
+          </CardTitle>
+          <CardDescription>
+            Mostra novamente todos os passos do guia "Comece por aqui" como pendentes,
+            sem apagar nenhum dado. Útil para revisar o fluxo ou treinar alguém.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center gap-3 rounded-md border border-border/60 bg-background/40 p-3">
+            <div className="flex-1 text-sm">
+              <div className="font-medium">Status</div>
+              <div className="text-muted-foreground text-xs">
+                {demo
+                  ? "Reset automático ativo enquanto o Modo Demonstração estiver ligado."
+                  : resetAt
+                    ? `Reset manual ativo desde ${new Date(Number(resetAt)).toLocaleString("pt-BR")}.`
+                    : "Guia mostrando o progresso real."}
+              </div>
+            </div>
+            <div className="flex gap-2">
+              {resetAt && !demo && (
+                <Button variant="ghost" size="sm" onClick={handleClearReset}>
+                  Voltar ao normal
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleResetGuide}
+                disabled={demo}
+                title={demo ? "Já está resetado pelo modo demo" : undefined}
+              >
+                <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                Resetar guia
+              </Button>
+            </div>
+          </div>
+          <div className="text-xs text-muted-foreground border-t border-border/40 pt-3">
+            Nenhum cliente, fundo, depósito ou cotação é alterado. O reset é apenas visual
+            e fica salvo neste navegador.
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
