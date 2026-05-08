@@ -195,10 +195,26 @@ export function OnboardingGuide({ state }: { state: OnboardingState }) {
               Comece por aqui
             </CardTitle>
             <p className="text-xs text-muted-foreground">
-              {allDone
-                ? "Tudo pronto. Você já passou por todos os passos essenciais."
-                : "Siga os passos abaixo para colocar a operação no ar."}
+              {forcePending
+                ? demo
+                  ? "Modo demonstração ativo — passos exibidos como pendentes."
+                  : "Reset ativo — passos exibidos como pendentes (dados reais preservados)."
+                : allDone
+                  ? "Tudo pronto. Você já passou por todos os passos essenciais."
+                  : "Siga os passos abaixo para colocar a operação no ar."}
             </p>
+            {resetActive && !demo && (
+              <button
+                type="button"
+                onClick={() => {
+                  localStorage.removeItem(RESET_KEY);
+                  setResetActive(false);
+                }}
+                className="text-[11px] text-primary hover:underline"
+              >
+                Voltar ao progresso real
+              </button>
+            )}
           </div>
           <Button
             variant="ghost"
