@@ -101,7 +101,7 @@ export function OnboardingGuide({ state }: { state: OnboardingState }) {
       description: "Crie a conta do cliente para começar a operar.",
       help: "Vá em Clientes e clique em \"Novo cliente\". Você define nome, e-mail e a senha de acesso. Esse cliente vai conseguir entrar no painel dele assim que for criado.",
       icon: Users,
-      done: state.hasClient,
+      done: effectiveState.hasClient,
       cta: { label: "Ir para Clientes", to: "/admin/clientes" },
     },
     {
@@ -110,7 +110,7 @@ export function OnboardingGuide({ state }: { state: OnboardingState }) {
       description: "O fundo agrupa as posições e o resultado do cliente.",
       help: "Abra o cliente recém-criado, vá na aba Fundos e clique em \"Novo fundo\". Defina nome (ex: \"Fundo Cripto\"), data de início e a taxa de performance. Cada cliente pode ter vários fundos.",
       icon: Wallet,
-      done: state.hasFund,
+      done: effectiveState.hasFund,
       cta: clientId
         ? { label: "Abrir cliente", to: "/admin/clientes/$clientId", params: { clientId } }
         : { label: "Ir para Clientes", to: "/admin/clientes" },
@@ -121,7 +121,7 @@ export function OnboardingGuide({ state }: { state: OnboardingState }) {
       description: "Lance o aporte do cliente para formar o caixa.",
       help: "Dentro do cliente, abra a aba Caixa e adicione um Depósito em USD. Esse valor forma o caixa disponível e entra no cálculo de patrimônio.",
       icon: DollarSign,
-      done: state.hasDeposit,
+      done: effectiveState.hasDeposit,
       cta: clientId
         ? { label: "Abrir Caixa", to: "/admin/clientes/$clientId", params: { clientId } }
         : { label: "Ir para Clientes", to: "/admin/clientes" },
@@ -132,7 +132,7 @@ export function OnboardingGuide({ state }: { state: OnboardingState }) {
       description: "Lance uma compra de cripto, renda fixa ou futuros.",
       help: "Abra o fundo do cliente e adicione uma posição: ticker (ex: BTC), quantidade e preço de entrada em USD. O sistema calcula automaticamente o P&L com base na cotação atual.",
       icon: Coins,
-      done: state.hasHolding,
+      done: effectiveState.hasHolding,
       cta:
         clientId && fundId
           ? {
@@ -150,7 +150,7 @@ export function OnboardingGuide({ state }: { state: OnboardingState }) {
       description: "Garanta que os preços de mercado estão recentes.",
       help: "Em Cotações, clique em \"Atualizar agora\" para puxar os preços mais recentes. Recomendamos atualizar pelo menos 1x por dia — o painel avisa quando algo está desatualizado há mais de 24h.",
       icon: RefreshCw,
-      done: state.pricesFresh,
+      done: effectiveState.pricesFresh,
       cta: { label: "Ir para Cotações", to: "/admin/cotacoes" },
     },
     {
