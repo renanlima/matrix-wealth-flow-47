@@ -60,30 +60,33 @@ interface ClientInfo {
 function ClientDetail() {
   const { clientId } = useParams({ from: "/admin/clientes/$clientId/" });
   const [info, setInfo] = useState<ClientInfo | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+
+  const loadInfo = useCallback(async () => {
+    const { data: c } = await supabase
+      .from("clients")
+      .select("id, phone, notes")
+      .eq("id", clientId)
+      .maybeSingle();
+    const { data: p } = await supabase
+      .from("profiles")
+      .select("full_name, email")
+      .eq("id", clientId)
+      .maybeSingle();
+    if (c) {
+      setInfo({
+        id: c.id,
+        phone: c.phone,
+        notes: c.notes,
+        full_name: p?.full_name ?? null,
+        email: p?.email ?? null,
+      });
+    }
+  }, [clientId]);
 
   useEffect(() => {
-    (async () => {
-      const { data: c } = await supabase
-        .from("clients")
-        .select("id, phone, notes")
-        .eq("id", clientId)
-        .maybeSingle();
-      const { data: p } = await supabase
-        .from("profiles")
-        .select("full_name, email")
-        .eq("id", clientId)
-        .maybeSingle();
-      if (c) {
-        setInfo({
-          id: c.id,
-          phone: c.phone,
-          notes: c.notes,
-          full_name: p?.full_name ?? null,
-          email: p?.email ?? null,
-        });
-      }
-    })();
-  }, [clientId]);
+    loadInfo();
+  }, [loadInfo]);
 
   return (
     <div className="space-y-6">
@@ -95,10 +98,29 @@ function ClientDetail() {
         </Link>
       </div>
 
-      <div>
-        <h1 className="text-2xl font-semibold">{info?.full_name ?? "—"}</h1>
-        <p className="text-sm text-muted-foreground font-mono">{info?.email}</p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-semibold">{info?.full_name ?? "—"}</h1>
+          <p className="text-sm text-muted-foreground font-mono">{info?.email}</p>
+          {info?.phone && (
+            <p className="text-xs text-muted-foreground font-mono mt-0.5">{info.phone}</p>
+          )}
+        </div>
+        {info && (
+          <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+            <Pencil className="h-4 w-4 mr-1" /> Editar dados
+          </Button>
+        )}
       </div>
+
+      {info && (
+        <EditClientDialog
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          info={info}
+          onSaved={loadInfo}
+        />
+      )}
 
       <Tabs defaultValue="fundos">
         <TabsList className="flex-wrap h-auto">
