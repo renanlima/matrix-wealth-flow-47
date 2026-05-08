@@ -37,7 +37,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Money } from "@/components/Money";
-import { Plus, ChevronLeft, Trash2 } from "lucide-react";
+import { Plus, ChevronLeft, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate, parseUsdInput } from "@/lib/format";
 import { FixedIncomeTab } from "@/components/admin/FixedIncomeTab";
@@ -60,30 +60,33 @@ interface ClientInfo {
 function ClientDetail() {
   const { clientId } = useParams({ from: "/admin/clientes/$clientId/" });
   const [info, setInfo] = useState<ClientInfo | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+
+  const loadInfo = useCallback(async () => {
+    const { data: c } = await supabase
+      .from("clients")
+      .select("id, phone, notes")
+      .eq("id", clientId)
+      .maybeSingle();
+    const { data: p } = await supabase
+      .from("profiles")
+      .select("full_name, email")
+      .eq("id", clientId)
+      .maybeSingle();
+    if (c) {
+      setInfo({
+        id: c.id,
+        phone: c.phone,
+        notes: c.notes,
+        full_name: p?.full_name ?? null,
+        email: p?.email ?? null,
+      });
+    }
+  }, [clientId]);
 
   useEffect(() => {
-    (async () => {
-      const { data: c } = await supabase
-        .from("clients")
-        .select("id, phone, notes")
-        .eq("id", clientId)
-        .maybeSingle();
-      const { data: p } = await supabase
-        .from("profiles")
-        .select("full_name, email")
-        .eq("id", clientId)
-        .maybeSingle();
-      if (c) {
-        setInfo({
-          id: c.id,
-          phone: c.phone,
-          notes: c.notes,
-          full_name: p?.full_name ?? null,
-          email: p?.email ?? null,
-        });
-      }
-    })();
-  }, [clientId]);
+    loadInfo();
+  }, [loadInfo]);
 
   return (
     <div className="space-y-6">
@@ -95,10 +98,29 @@ function ClientDetail() {
         </Link>
       </div>
 
-      <div>
-        <h1 className="text-2xl font-semibold">{info?.full_name ?? "—"}</h1>
-        <p className="text-sm text-muted-foreground font-mono">{info?.email}</p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-semibold">{info?.full_name ?? "—"}</h1>
+          <p className="text-sm text-muted-foreground font-mono">{info?.email}</p>
+          {info?.phone && (
+            <p className="text-xs text-muted-foreground font-mono mt-0.5">{info.phone}</p>
+          )}
+        </div>
+        {info && (
+          <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+            <Pencil className="h-4 w-4 mr-1" /> Editar dados
+          </Button>
+        )}
       </div>
+
+      {info && (
+        <EditClientDialog
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          info={info}
+          onSaved={loadInfo}
+        />
+      )}
 
       <Tabs defaultValue="fundos">
         <TabsList className="flex-wrap h-auto">
@@ -133,6 +155,128 @@ function ClientDetail() {
   );
 }
 
+function EditClientDialog({
+  open,
+  onOpenChange,
+  info,
+  onSaved,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  info: ClientInfo;
+  onSaved: () => void;
+}) {
+  const [form, setForm] = useState({
+    full_name: info.full_name ?? "",
+    email: info.email ?? "",
+    phone: info.phone ?? "",
+    notes: info.notes ?? "",
+    password: "",
+  });
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setForm({
+        full_name: info.full_name ?? "",
+        email: info.email ?? "",
+        phone: info.phone ?? "",
+        notes: info.notes ?? "",
+        password: "",
+      });
+    }
+  }, [open, info]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    const payload: Record<string, unknown> = {
+      client_id: info.id,
+      full_name: form.full_name,
+      email: form.email,
+      phone: form.phone || null,
+      notes: form.notes || null,
+    };
+    if (form.password.trim().length > 0) payload.password = form.password;
+
+    const { data, error } = await supabase.functions.invoke("update-client", { body: payload });
+    setSubmitting(false);
+    if (error || (data && (data as any).error)) {
+      toast.error("Erro ao salvar", {
+        description: error?.message ?? (data as any)?.error,
+      });
+      return;
+    }
+    toast.success("Cliente atualizado");
+    onOpenChange(false);
+    onSaved();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Editar cliente</DialogTitle>
+          <DialogDescription>
+            Atualize os dados de cadastro. Deixe a senha em branco para mantê-la.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="space-y-1.5">
+            <Label>Nome completo *</Label>
+            <Input
+              value={form.full_name}
+              onChange={(e) => setForm({ ...form, full_name: e.target.value })}
+              required
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Email *</Label>
+            <Input
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              required
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Telefone</Label>
+            <Input
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Nova senha</Label>
+            <Input
+              type="text"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              placeholder="Em branco = não alterar"
+              minLength={6}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Observações</Label>
+            <Textarea
+              rows={2}
+              value={form.notes}
+              onChange={(e) => setForm({ ...form, notes: e.target.value })}
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={submitting} className="glow-cyan">
+              {submitting ? "Salvando..." : "Salvar alterações"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 
 // ============= FUNDS TAB =============
