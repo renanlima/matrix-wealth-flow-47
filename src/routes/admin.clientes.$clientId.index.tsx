@@ -37,7 +37,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Money } from "@/components/Money";
-import { Plus, ChevronLeft, Trash2 } from "lucide-react";
+import { Plus, ChevronLeft, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate, parseUsdInput } from "@/lib/format";
 import { FixedIncomeTab } from "@/components/admin/FixedIncomeTab";
