@@ -18,9 +18,12 @@ import {
   Eye,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useDemo } from "@/contexts/DemoContext";
 
 const DISMISS_KEY = "admin_onboarding_dismissed";
+const RESET_KEY = "admin_onboarding_reset_at";
 const REOPEN_EVENT = "reopen-onboarding";
+const RESET_EVENT = "reset-onboarding";
 
 export interface OnboardingState {
   hasClient: boolean;
