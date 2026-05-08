@@ -46,23 +46,53 @@ interface Step {
 }
 
 export function OnboardingGuide({ state }: { state: OnboardingState }) {
+  const { demo } = useDemo();
   const [dismissed, setDismissed] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     return localStorage.getItem(DISMISS_KEY) === "1";
   });
+  const [resetActive, setResetActive] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return !!localStorage.getItem(RESET_KEY);
+  });
   const [expandedHelp, setExpandedHelp] = useState<string | null>(null);
 
   useEffect(() => {
-    const handler = () => {
+    const reopen = () => {
       localStorage.removeItem(DISMISS_KEY);
       setDismissed(false);
     };
-    window.addEventListener(REOPEN_EVENT, handler);
-    return () => window.removeEventListener(REOPEN_EVENT, handler);
+    const reset = () => {
+      setResetActive(!!localStorage.getItem(RESET_KEY));
+    };
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === RESET_KEY) setResetActive(!!e.newValue);
+      if (e.key === DISMISS_KEY) setDismissed(e.newValue === "1");
+    };
+    window.addEventListener(REOPEN_EVENT, reopen);
+    window.addEventListener(RESET_EVENT, reset);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener(REOPEN_EVENT, reopen);
+      window.removeEventListener(RESET_EVENT, reset);
+      window.removeEventListener("storage", onStorage);
+    };
   }, []);
 
-  const clientId = state.firstClientId;
-  const fundId = state.firstFundId;
+  const forcePending = demo || resetActive;
+  const clientId = forcePending ? null : state.firstClientId;
+  const fundId = forcePending ? null : state.firstFundId;
+  const effectiveState: OnboardingState = forcePending
+    ? {
+        hasClient: false,
+        hasFund: false,
+        hasDeposit: false,
+        hasHolding: false,
+        pricesFresh: false,
+        firstClientId: null,
+        firstFundId: null,
+      }
+    : state;
 
   const steps: Step[] = [
     {
