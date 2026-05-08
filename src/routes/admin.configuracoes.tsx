@@ -1,11 +1,17 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Sparkles, RefreshCw, AlertTriangle } from "lucide-react";
+import { Sparkles, RefreshCw, AlertTriangle, ListChecks, RotateCcw } from "lucide-react";
 import { useDemo } from "@/contexts/DemoContext";
 import { toast } from "sonner";
+import { useEffect, useState } from "react";
+
+const RESET_KEY = "admin_onboarding_reset_at";
+const DISMISS_KEY = "admin_onboarding_dismissed";
+const RESET_EVENT = "reset-onboarding";
+const REOPEN_EVENT = "reopen-onboarding";
 
 export const Route = createFileRoute("/admin/configuracoes")({
   component: SettingsPage,
@@ -13,6 +19,37 @@ export const Route = createFileRoute("/admin/configuracoes")({
 
 function SettingsPage() {
   const { demo, toggle, reseed, seed } = useDemo();
+  const navigate = useNavigate();
+  const [resetAt, setResetAt] = useState<string | null>(() =>
+    typeof window === "undefined" ? null : localStorage.getItem(RESET_KEY),
+  );
+
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === RESET_KEY) setResetAt(e.newValue);
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  const handleResetGuide = () => {
+    const now = String(Date.now());
+    localStorage.setItem(RESET_KEY, now);
+    localStorage.removeItem(DISMISS_KEY);
+    setResetAt(now);
+    window.dispatchEvent(new CustomEvent(RESET_EVENT));
+    window.dispatchEvent(new CustomEvent(REOPEN_EVENT));
+    toast.success("Guia resetado", { description: "Todos os passos voltaram a aparecer como pendentes." });
+    navigate({ to: "/admin" });
+  };
+
+  const handleClearReset = () => {
+    localStorage.removeItem(RESET_KEY);
+    setResetAt(null);
+    window.dispatchEvent(new CustomEvent(RESET_EVENT));
+    toast.success("Progresso real restaurado");
+  };
+
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -94,6 +131,54 @@ function SettingsPage() {
             <div>
               • Persiste entre sessões neste navegador. Sincroniza entre abas abertas.
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className={resetAt ? "border-primary/40" : "border-border/60"}>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <ListChecks className="h-4 w-4 text-primary" />
+            Guia inicial
+          </CardTitle>
+          <CardDescription>
+            Mostra novamente todos os passos do guia "Comece por aqui" como pendentes,
+            sem apagar nenhum dado. Útil para revisar o fluxo ou treinar alguém.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center gap-3 rounded-md border border-border/60 bg-background/40 p-3">
+            <div className="flex-1 text-sm">
+              <div className="font-medium">Status</div>
+              <div className="text-muted-foreground text-xs">
+                {demo
+                  ? "Reset automático ativo enquanto o Modo Demonstração estiver ligado."
+                  : resetAt
+                    ? `Reset manual ativo desde ${new Date(Number(resetAt)).toLocaleString("pt-BR")}.`
+                    : "Guia mostrando o progresso real."}
+              </div>
+            </div>
+            <div className="flex gap-2">
+              {resetAt && !demo && (
+                <Button variant="ghost" size="sm" onClick={handleClearReset}>
+                  Voltar ao normal
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleResetGuide}
+                disabled={demo}
+                title={demo ? "Já está resetado pelo modo demo" : undefined}
+              >
+                <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                Resetar guia
+              </Button>
+            </div>
+          </div>
+          <div className="text-xs text-muted-foreground border-t border-border/40 pt-3">
+            Nenhum cliente, fundo, depósito ou cotação é alterado. O reset é apenas visual
+            e fica salvo neste navegador.
           </div>
         </CardContent>
       </Card>

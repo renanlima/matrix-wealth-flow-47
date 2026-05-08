@@ -18,9 +18,12 @@ import {
   Eye,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useDemo } from "@/contexts/DemoContext";
 
 const DISMISS_KEY = "admin_onboarding_dismissed";
+const RESET_KEY = "admin_onboarding_reset_at";
 const REOPEN_EVENT = "reopen-onboarding";
+const RESET_EVENT = "reset-onboarding";
 
 export interface OnboardingState {
   hasClient: boolean;
@@ -43,23 +46,53 @@ interface Step {
 }
 
 export function OnboardingGuide({ state }: { state: OnboardingState }) {
+  const { demo } = useDemo();
   const [dismissed, setDismissed] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     return localStorage.getItem(DISMISS_KEY) === "1";
   });
+  const [resetActive, setResetActive] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return !!localStorage.getItem(RESET_KEY);
+  });
   const [expandedHelp, setExpandedHelp] = useState<string | null>(null);
 
   useEffect(() => {
-    const handler = () => {
+    const reopen = () => {
       localStorage.removeItem(DISMISS_KEY);
       setDismissed(false);
     };
-    window.addEventListener(REOPEN_EVENT, handler);
-    return () => window.removeEventListener(REOPEN_EVENT, handler);
+    const reset = () => {
+      setResetActive(!!localStorage.getItem(RESET_KEY));
+    };
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === RESET_KEY) setResetActive(!!e.newValue);
+      if (e.key === DISMISS_KEY) setDismissed(e.newValue === "1");
+    };
+    window.addEventListener(REOPEN_EVENT, reopen);
+    window.addEventListener(RESET_EVENT, reset);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener(REOPEN_EVENT, reopen);
+      window.removeEventListener(RESET_EVENT, reset);
+      window.removeEventListener("storage", onStorage);
+    };
   }, []);
 
-  const clientId = state.firstClientId;
-  const fundId = state.firstFundId;
+  const forcePending = demo || resetActive;
+  const clientId = forcePending ? null : state.firstClientId;
+  const fundId = forcePending ? null : state.firstFundId;
+  const effectiveState: OnboardingState = forcePending
+    ? {
+        hasClient: false,
+        hasFund: false,
+        hasDeposit: false,
+        hasHolding: false,
+        pricesFresh: false,
+        firstClientId: null,
+        firstFundId: null,
+      }
+    : state;
 
   const steps: Step[] = [
     {
@@ -68,7 +101,7 @@ export function OnboardingGuide({ state }: { state: OnboardingState }) {
       description: "Crie a conta do cliente para começar a operar.",
       help: "Vá em Clientes e clique em \"Novo cliente\". Você define nome, e-mail e a senha de acesso. Esse cliente vai conseguir entrar no painel dele assim que for criado.",
       icon: Users,
-      done: state.hasClient,
+      done: effectiveState.hasClient,
       cta: { label: "Ir para Clientes", to: "/admin/clientes" },
     },
     {
@@ -77,7 +110,7 @@ export function OnboardingGuide({ state }: { state: OnboardingState }) {
       description: "O fundo agrupa as posições e o resultado do cliente.",
       help: "Abra o cliente recém-criado, vá na aba Fundos e clique em \"Novo fundo\". Defina nome (ex: \"Fundo Cripto\"), data de início e a taxa de performance. Cada cliente pode ter vários fundos.",
       icon: Wallet,
-      done: state.hasFund,
+      done: effectiveState.hasFund,
       cta: clientId
         ? { label: "Abrir cliente", to: "/admin/clientes/$clientId", params: { clientId } }
         : { label: "Ir para Clientes", to: "/admin/clientes" },
@@ -88,7 +121,7 @@ export function OnboardingGuide({ state }: { state: OnboardingState }) {
       description: "Lance o aporte do cliente para formar o caixa.",
       help: "Dentro do cliente, abra a aba Caixa e adicione um Depósito em USD. Esse valor forma o caixa disponível e entra no cálculo de patrimônio.",
       icon: DollarSign,
-      done: state.hasDeposit,
+      done: effectiveState.hasDeposit,
       cta: clientId
         ? { label: "Abrir Caixa", to: "/admin/clientes/$clientId", params: { clientId } }
         : { label: "Ir para Clientes", to: "/admin/clientes" },
@@ -99,7 +132,7 @@ export function OnboardingGuide({ state }: { state: OnboardingState }) {
       description: "Lance uma compra de cripto, renda fixa ou futuros.",
       help: "Abra o fundo do cliente e adicione uma posição: ticker (ex: BTC), quantidade e preço de entrada em USD. O sistema calcula automaticamente o P&L com base na cotação atual.",
       icon: Coins,
-      done: state.hasHolding,
+      done: effectiveState.hasHolding,
       cta:
         clientId && fundId
           ? {
@@ -117,7 +150,7 @@ export function OnboardingGuide({ state }: { state: OnboardingState }) {
       description: "Garanta que os preços de mercado estão recentes.",
       help: "Em Cotações, clique em \"Atualizar agora\" para puxar os preços mais recentes. Recomendamos atualizar pelo menos 1x por dia — o painel avisa quando algo está desatualizado há mais de 24h.",
       icon: RefreshCw,
-      done: state.pricesFresh,
+      done: effectiveState.pricesFresh,
       cta: { label: "Ir para Cotações", to: "/admin/cotacoes" },
     },
     {
@@ -162,10 +195,26 @@ export function OnboardingGuide({ state }: { state: OnboardingState }) {
               Comece por aqui
             </CardTitle>
             <p className="text-xs text-muted-foreground">
-              {allDone
-                ? "Tudo pronto. Você já passou por todos os passos essenciais."
-                : "Siga os passos abaixo para colocar a operação no ar."}
+              {forcePending
+                ? demo
+                  ? "Modo demonstração ativo — passos exibidos como pendentes."
+                  : "Reset ativo — passos exibidos como pendentes (dados reais preservados)."
+                : allDone
+                  ? "Tudo pronto. Você já passou por todos os passos essenciais."
+                  : "Siga os passos abaixo para colocar a operação no ar."}
             </p>
+            {resetActive && !demo && (
+              <button
+                type="button"
+                onClick={() => {
+                  localStorage.removeItem(RESET_KEY);
+                  setResetActive(false);
+                }}
+                className="text-[11px] text-primary hover:underline"
+              >
+                Voltar ao progresso real
+              </button>
+            )}
           </div>
           <Button
             variant="ghost"
