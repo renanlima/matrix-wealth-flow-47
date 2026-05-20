@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ChevronLeft } from "lucide-react";
 import { ExtratoFundo } from "@/components/extrato/ExtratoFundo";
 
-export const Route = createFileRoute("/app/fundos_/$fundId/extrato")({
+export const Route = createFileRoute("/app/fundos_/$fundId_/extrato")({
   component: ClientExtrato,
 });
 
