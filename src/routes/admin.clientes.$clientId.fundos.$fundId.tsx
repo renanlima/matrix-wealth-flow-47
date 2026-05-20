@@ -472,45 +472,42 @@ function NewHoldingDialog({ fundId, onCreated }: { fundId: string; onCreated: ()
 function RealizeDialog({ holding, onDone }: { holding: Holding; onDone: () => void }) {
   const [open, setOpen] = useState(false);
   const [exitPrice, setExitPrice] = useState("");
+  const [qtyToSell, setQtyToSell] = useState(String(holding.quantity));
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [submitting, setSubmitting] = useState(false);
 
   const exitPriceNum = parseUsdInput(exitPrice);
-  const total = exitPriceNum * Number(holding.quantity);
-  const cost = Number(holding.entry_price_usd) * Number(holding.quantity);
+  const qtyNum = Number(qtyToSell);
+  const maxQty = Number(holding.quantity);
+  const qtyValid = qtyNum > 0 && qtyNum <= maxQty;
+  const isPartial = qtyValid && qtyNum < maxQty;
+  const total = exitPriceNum * (qtyValid ? qtyNum : 0);
+  const cost = Number(holding.entry_price_usd) * (qtyValid ? qtyNum : 0);
   const profit = total - cost;
+  const remaining = qtyValid ? maxQty - qtyNum : maxQty;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!qtyValid) { toast.error("Quantidade inválida"); return; }
     setSubmitting(true);
-    const { error: rErr } = await supabase.from("realizations").insert({
-      holding_id: holding.id,
-      exit_price_usd: exitPriceNum,
-      exit_date: date,
-      total_usd: total,
-      profit_usd: profit,
+    const { error } = await supabase.rpc("realize_partial", {
+      _holding_id: holding.id,
+      _qty: qtyNum,
+      _exit_price: exitPriceNum,
+      _exit_date: date,
+      _notes: null,
     });
-    if (rErr) {
-      setSubmitting(false);
-      toast.error(rErr.message);
-      return;
-    }
-    const { error: uErr } = await supabase
-      .from("holdings")
-      .update({ status: "encerrada" })
-      .eq("id", holding.id);
     setSubmitting(false);
-    if (uErr) {
-      toast.error(uErr.message);
-      return;
-    }
-    toast.success("Posição realizada (venda total)");
+    if (error) { toast.error(error.message); return; }
+    toast.success(isPartial ? "Venda parcial registrada" : "Posição encerrada");
     setOpen(false);
+    setExitPrice("");
+    setQtyToSell(String(holding.quantity));
     onDone();
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (o) setQtyToSell(String(holding.quantity)); }}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
           <DollarSign className="h-3.5 w-3.5 mr-1" /> Realizar
@@ -518,10 +515,9 @@ function RealizeDialog({ holding, onDone }: { holding: Holding; onDone: () => vo
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Realizar posição (venda total)</DialogTitle>
+          <DialogTitle>{isPartial ? "Realizar parcial" : "Realizar (venda total)"}</DialogTitle>
           <DialogDescription>
-            A venda é sempre integral ({holding.quantity} {holding.coin_symbol}). Para manter parte,
-            crie depois uma nova posição em outro fundo com a quantidade restante.
+            Disponível: {maxQty} {holding.coin_symbol}. Informe a quantidade a vender (total ou parcial).
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-3">
@@ -535,18 +531,167 @@ function RealizeDialog({ holding, onDone }: { holding: Holding; onDone: () => vo
             />
           </div>
           <div className="space-y-1.5">
+            <Label>Quantidade a vender * <span className="text-xs text-muted-foreground">(máx {maxQty})</span></Label>
+            <Input
+              type="number"
+              step="0.00000001"
+              min="0"
+              max={maxQty}
+              value={qtyToSell}
+              onChange={(e) => setQtyToSell(e.target.value)}
+              required
+            />
+            {qtyToSell && !qtyValid && (
+              <p className="text-xs text-destructive">Quantidade deve ser maior que zero e até {maxQty}.</p>
+            )}
+          </div>
+          <div className="space-y-1.5">
             <Label>Data *</Label>
             <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
           </div>
-          {exitPrice && (
+          {exitPrice && qtyValid && (
             <Card><CardContent className="p-3 space-y-1 text-sm">
               <div className="flex justify-between"><span className="text-muted-foreground">Total</span><Money usd={total} /></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Custo</span><Money usd={cost} /></div>
-              <div className="flex justify-between font-semibold"><span>Lucro</span><span className={profit >= 0 ? "text-success" : "text-destructive"}><Money usd={profit} /></span></div>
+              <div className="flex justify-between font-semibold">
+                <span>Lucro/Prejuízo desta venda</span>
+                <span className={pnlClass(profit)}>{profit >= 0 ? "+" : ""}{formatUSD(profit)}</span>
+              </div>
+              {isPartial && (
+                <div className="flex justify-between text-xs text-muted-foreground pt-1 border-t border-border">
+                  <span>Restante após venda</span>
+                  <span className="font-mono">{remaining} {holding.coin_symbol}</span>
+                </div>
+              )}
             </CardContent></Card>
           )}
           <DialogFooter>
-            <Button type="submit" disabled={submitting} className="glow-cyan">{submitting ? "Realizando..." : "Confirmar realização"}</Button>
+            <Button type="submit" disabled={submitting || !qtyValid || !exitPrice} className="glow-cyan">
+              {submitting ? "Realizando..." : (isPartial ? "Confirmar venda parcial" : "Confirmar realização")}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditHoldingButton({ holding, locked, onDone }: { holding: Holding; locked: boolean; onDone: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({
+    coin_symbol: holding.coin_symbol,
+    coin_name: holding.coin_name ?? "",
+    quantity: String(holding.quantity),
+    entry_price_usd: String(holding.entry_price_usd),
+    purchase_date: holding.purchase_date,
+    notes: holding.notes ?? "",
+  });
+  const [submitting, setSubmitting] = useState(false);
+
+  if (locked) {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span tabIndex={0}>
+              <Button variant="ghost" size="icon" disabled aria-label="Editar (bloqueado)">
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>
+            Holding com vendas registradas — não pode ser editado. Crie ajuste manual.
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    const { error } = await supabase
+      .from("holdings")
+      .update({
+        coin_symbol: form.coin_symbol.toUpperCase(),
+        coin_name: form.coin_name || null,
+        quantity: Number(form.quantity),
+        entry_price_usd: parseUsdInput(form.entry_price_usd),
+        purchase_date: form.purchase_date,
+        notes: form.notes || null,
+      })
+      .eq("id", holding.id);
+    setSubmitting(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Holding atualizado");
+    setOpen(false);
+    onDone();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="icon" aria-label="Editar">
+          <Pencil className="h-3.5 w-3.5" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Editar holding</DialogTitle>
+          <DialogDescription>Mover entre fundos não é permitido aqui.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={submit} className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Ticker *</Label>
+              <Input
+                value={form.coin_symbol}
+                onChange={(e) => setForm({ ...form, coin_symbol: e.target.value })}
+                required
+                className="font-mono uppercase"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Nome</Label>
+              <Input value={form.coin_name} onChange={(e) => setForm({ ...form, coin_name: e.target.value })} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Quantidade *</Label>
+              <Input
+                type="number"
+                step="0.00000001"
+                value={form.quantity}
+                onChange={(e) => setForm({ ...form, quantity: e.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Preço médio (USD) *</Label>
+              <MoneyInput
+                decimals={8}
+                value={form.entry_price_usd}
+                onValueChange={(display) => setForm({ ...form, entry_price_usd: display })}
+                required
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Data da compra *</Label>
+            <Input
+              type="date"
+              value={form.purchase_date}
+              onChange={(e) => setForm({ ...form, purchase_date: e.target.value })}
+              required
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Observações</Label>
+            <Textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+          </div>
+          <DialogFooter>
+            <Button type="submit" disabled={submitting}>{submitting ? "Salvando..." : "Salvar"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>
