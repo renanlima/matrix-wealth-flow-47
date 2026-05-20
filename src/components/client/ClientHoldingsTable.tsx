@@ -49,9 +49,9 @@ export function ClientHoldingsTable({ holdings, prices, emptyMessage = "Sem posi
           return (
             <TableRow key={h.id}>
               <TableCell className="font-mono font-semibold">{h.coin_symbol}</TableCell>
-              <TableCell className="text-right"><CryptoQty qty={h.quantity} /></TableCell>
+              <TableCell className="text-right"><CryptoQty qty={Number(h.quantity)} /></TableCell>
               <TableCell className="text-right"><Money usd={market} /></TableCell>
-              <TableCell className="text-right"><Money usd={h.entry_price_usd} /></TableCell>
+              <TableCell className="text-right"><Money usd={Number(h.entry_price_usd)} /></TableCell>
               <TableCell className="text-right">{hasPrice ? <Money usd={cur} /> : "—"}</TableCell>
               <TableCell className="text-right">
                 {h.status === "ativa" ? (
