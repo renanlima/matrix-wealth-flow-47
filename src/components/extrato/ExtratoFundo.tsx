@@ -179,13 +179,14 @@ export function ExtratoFundo({ fundId, fundName, clientName }: Props) {
         />
       </div>
 
-      <Alert>
-        <Info className="h-4 w-4" />
-        <AlertDescription>
-          Aportes e retiradas são geridos no caixa do cliente e ainda não estão vinculados a fundos
-          específicos. Em breve será possível alocá-los por fundo.
-        </AlertDescription>
-      </Alert>
+      {cashFetchFailed && (
+        <Alert>
+          <Info className="h-4 w-4" />
+          <AlertDescription>
+            Não foi possível carregar aportes e retiradas deste fundo. O extrato está mostrando apenas compras, vendas, rendimentos e taxas.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Filtros */}
       <Card>
