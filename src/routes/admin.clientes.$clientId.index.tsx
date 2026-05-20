@@ -456,43 +456,56 @@ function NewFundDialog({
 }
 
 // ============= CASH TAB =============
+const CAIXA_GERAL_VALUE = "__caixa_geral__";
+
+interface FundOption {
+  id: string;
+  name: string;
+}
+
 interface CashEntry {
   id: string;
   amount_usd: number;
   date: string;
   notes: string | null;
   type: "deposit" | "withdraw";
+  fund_id: string | null;
 }
 
 function CashTab({ clientId }: { clientId: string }) {
   const [deposits, setDeposits] = useState<CashEntry[]>([]);
+  const [funds, setFunds] = useState<FundOption[]>([]);
   const [holdingsCost, setHoldingsCost] = useState(0);
   const [realizationsTotal, setRealizationsTotal] = useState(0);
 
   const load = useCallback(async () => {
-    const [d, w, holdings, real] = await Promise.all([
+    const [d, w, holdings, real, fundsRes] = await Promise.all([
       supabase.from("deposits").select("*").eq("client_id", clientId).order("deposit_date", { ascending: false }),
       supabase.from("withdrawals").select("*").eq("client_id", clientId).order("withdraw_date", { ascending: false }),
       supabase.from("holdings").select("quantity, entry_price_usd, fund_id, status, funds!inner(client_id)").eq("status", "ativa").eq("funds.client_id", clientId),
       supabase.from("realizations").select("total_usd, holding_id, holdings!inner(fund_id, funds!inner(client_id))").eq("holdings.funds.client_id", clientId),
+      supabase.from("funds").select("id, name").eq("client_id", clientId).order("name", { ascending: true }),
     ]);
     const merged: CashEntry[] = [
-      ...((d.data ?? []).map((x) => ({
+      ...((d.data ?? []).map((x: any) => ({
         id: x.id,
         amount_usd: Number(x.amount_usd),
         date: x.deposit_date,
         notes: x.notes,
         type: "deposit" as const,
+        fund_id: x.fund_id ?? null,
       }))),
-      ...((w.data ?? []).map((x) => ({
+      ...((w.data ?? []).map((x: any) => ({
         id: x.id,
         amount_usd: Number(x.amount_usd),
         date: x.withdraw_date,
         notes: x.notes,
         type: "withdraw" as const,
+        fund_id: x.fund_id ?? null,
       }))),
     ].sort((a, b) => (a.date < b.date ? 1 : -1));
     setDeposits(merged);
+    setFunds((fundsRes.data ?? []) as FundOption[]);
     setHoldingsCost(
       (holdings.data ?? []).reduce(
         (s, h: any) => s + Number(h.quantity) * Number(h.entry_price_usd),
@@ -527,6 +540,18 @@ function CashTab({ clientId }: { clientId: string }) {
     }
   };
 
+  const reallocate = async (entry: CashEntry, value: string) => {
+    const fund_id = value === CAIXA_GERAL_VALUE ? null : value;
+    const tbl = entry.type === "deposit" ? "deposits" : "withdrawals";
+    const { error } = await supabase.from(tbl).update({ fund_id } as any).eq("id", entry.id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Fundo atualizado");
+    load();
+  };
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -536,8 +561,8 @@ function CashTab({ clientId }: { clientId: string }) {
       </div>
 
       <div className="flex gap-2">
-        <CashDialog type="deposit" clientId={clientId} onCreated={load} />
-        <CashDialog type="withdraw" clientId={clientId} onCreated={load} />
+        <CashDialog type="deposit" clientId={clientId} funds={funds} onCreated={load} />
+        <CashDialog type="withdraw" clientId={clientId} funds={funds} onCreated={load} />
       </div>
 
       <Card>
@@ -548,6 +573,7 @@ function CashTab({ clientId }: { clientId: string }) {
                 <TableHead>Data</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead className="text-right">Valor</TableHead>
+                <TableHead>Fundo</TableHead>
                 <TableHead>Observações</TableHead>
                 <TableHead></TableHead>
               </TableRow>
@@ -555,7 +581,7 @@ function CashTab({ clientId }: { clientId: string }) {
             <TableBody>
               {deposits.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
                     Nenhuma movimentação.
                   </TableCell>
                 </TableRow>
@@ -570,6 +596,22 @@ function CashTab({ clientId }: { clientId: string }) {
                   </TableCell>
                   <TableCell className="text-right">
                     <Money usd={e.amount_usd} />
+                  </TableCell>
+                  <TableCell>
+                    <Select
+                      value={e.fund_id ?? CAIXA_GERAL_VALUE}
+                      onValueChange={(v) => reallocate(e, v)}
+                    >
+                      <SelectTrigger className="h-8 text-xs w-[180px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={CAIXA_GERAL_VALUE}>— Caixa geral —</SelectItem>
+                        {funds.map((f) => (
+                          <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{e.notes ?? "—"}</TableCell>
                   <TableCell className="text-right">
@@ -618,16 +660,19 @@ function CashTab({ clientId }: { clientId: string }) {
 function CashDialog({
   type,
   clientId,
+  funds,
   onCreated,
 }: {
   type: "deposit" | "withdraw";
   clientId: string;
+  funds: FundOption[];
   onCreated: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState("");
+  const [fundId, setFundId] = useState<string>(CAIXA_GERAL_VALUE);
   const [submitting, setSubmitting] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
@@ -640,6 +685,7 @@ function CashDialog({
       amount_usd: parseUsdInput(amount),
       [dateField]: date,
       notes: notes || null,
+      fund_id: fundId === CAIXA_GERAL_VALUE ? null : fundId,
     } as any);
     setSubmitting(false);
     if (error) {
@@ -649,6 +695,7 @@ function CashDialog({
     toast.success(type === "deposit" ? "Depósito registrado" : "Saque registrado");
     setAmount("");
     setNotes("");
+    setFundId(CAIXA_GERAL_VALUE);
     setOpen(false);
     onCreated();
   };
@@ -678,6 +725,23 @@ function CashDialog({
           <div className="space-y-1.5">
             <Label>Data *</Label>
             <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Fundo (opcional)</Label>
+            <Select value={fundId} onValueChange={setFundId}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={CAIXA_GERAL_VALUE}>— Caixa geral —</SelectItem>
+                {funds.map((f) => (
+                  <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-muted-foreground">
+              Se deixar em branco, o lançamento fica no caixa geral do cliente e não entra no extrato de nenhum fundo.
+            </p>
           </div>
           <div className="space-y-1.5">
             <Label>Observações</Label>
