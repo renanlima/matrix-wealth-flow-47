@@ -104,7 +104,15 @@ function ClientFunds() {
           <Card key={f.id} className="border-primary/10">
             <CardHeader>
               <div className="flex items-center justify-between flex-wrap gap-2">
-                <CardTitle className="text-base">{f.name}</CardTitle>
+                <CardTitle className="text-base">
+                  <Link
+                    to="/app/fundos_/$fundId"
+                    params={{ fundId: f.id }}
+                    className="hover:text-primary transition-colors"
+                  >
+                    {f.name}
+                  </Link>
+                </CardTitle>
                 <div className="flex items-center gap-4 text-xs">
                   <span className="text-muted-foreground">Início {formatDate(f.start_date)}</span>
                   <span className={f.status === "ativo" ? "text-success" : "text-muted-foreground"}>
