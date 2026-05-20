@@ -182,6 +182,35 @@ export function buildExtratoEvents(input: {
     });
   }
 
+  // Aportes (deposits alocados a este fundo)
+  for (const d of input.deposits ?? []) {
+    const amount = Number(d.amount_usd);
+    events.push({
+      id: `dep-${d.id}`,
+      date: d.deposit_date,
+      type: "Aporte",
+      description: d.notes ? `Aporte — ${d.notes}` : `Aporte`,
+      quantity: null,
+      symbol: null,
+      valueUsd: amount,
+    });
+  }
+
+  // Retiradas (withdrawals alocadas a este fundo)
+  for (const w of input.withdrawals ?? []) {
+    const amount = Number(w.amount_usd);
+    events.push({
+      id: `wd-${w.id}`,
+      date: w.withdraw_date,
+      type: "Retirada",
+      description: w.notes ? `Retirada — ${w.notes}` : `Retirada`,
+      quantity: null,
+      symbol: null,
+      valueUsd: -amount,
+    });
+  }
+
+
   // DESC por data, depois por tipo (estável)
   events.sort((a, b) => {
     if (a.date === b.date) return a.type.localeCompare(b.type);
