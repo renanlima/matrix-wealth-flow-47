@@ -144,7 +144,7 @@ function FundDetail() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Link to="/admin/clientes/$clientId/fundos/$fundId/extrato" params={{ clientId, fundId }}>
+          <Link to="/admin/clientes/$clientId/fundos/$fundId_/extrato" params={{ clientId, fundId }}>
             <Button variant="outline" size="sm">
               <FileText className="h-4 w-4 mr-1" /> Extrato
             </Button>

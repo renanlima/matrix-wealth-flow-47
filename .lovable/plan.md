@@ -1,46 +1,36 @@
-## Objetivo
+# Corrigir botão "Extrato" que não abre
 
-Permitir "resetar" o guia inicial para começar do zero, sem mexer em dados reais. O reset funciona de duas formas:
+## Diagnóstico
 
-1. **Botão manual** em Configurações → "Resetar guia inicial".
-2. **Automático no modo DEMO**: quando o DEMO está ligado, o guia ignora o progresso real e mostra todos os passos como pendentes (bom pra demonstração ao vivo).
+No TanStack Router file-based, segmentos separados por `.` viram **rotas aninhadas**. Os arquivos atuais:
 
-## Como vai funcionar
+- `src/routes/admin.clientes.$clientId.fundos.$fundId.extrato.tsx` vira filho de `admin.clientes.$clientId.fundos.$fundId.tsx`
+- `src/routes/app.fundos.$fundId.extrato.tsx` vira filho de `app.fundos.tsx`
 
-- Novo flag em `localStorage`: `admin_onboarding_reset_at` (timestamp).
-- Quando esse flag existe **ou** o modo DEMO está ativo, o `OnboardingGuide` força todos os `done = false` no estado derivado, ignorando os dados reais.
-- O flag é limpo quando o admin clicar em "Concluir guia" ou no X (volta ao comportamento normal baseado em dados).
-- Reabrir o guia (botão Guia no header) continua igual — só desfaz o "dispensado".
+Ambos os pais são páginas finais (sem `<Outlet />`). Quando o usuário clica em **Extrato**, a URL muda, mas o componente filho nunca é montado — o pai continua renderizando seu próprio conteúdo sem outlet. Visualmente parece que "o botão não abre".
 
-## Mudanças
+O erro no console (`_nonReactive` durante `preloadRoute`) é um efeito colateral do preload em uma árvore inconsistente.
 
-**1. `src/components/admin/OnboardingGuide.tsx`**
-- Importar `useDemo`.
-- Ler `localStorage.getItem("admin_onboarding_reset_at")` no estado inicial e escutar `storage` event pra sincronizar.
-- Calcular `forcePending = demo || resetActive`.
-- Ao montar `steps`, se `forcePending` → `done: false` em todos.
-- Mostrar um aviso discreto no topo do card quando `forcePending`: "Modo demonstração — passos exibidos como pendentes" (texto pequeno, `text-muted-foreground`).
-- Ao clicar "Concluir guia" ou X → também limpar `admin_onboarding_reset_at`.
+## Correção
 
-**2. `src/routes/admin.configuracoes.tsx`**
-- Adicionar nova seção "Guia inicial" com:
-  - Botão **"Resetar guia"** → seta `admin_onboarding_reset_at = Date.now()`, remove `admin_onboarding_dismissed`, dispara `reopen-onboarding`, navega pra `/admin`, mostra `toast.success("Guia resetado")`.
-  - Texto explicativo: "Mostra todos os passos como pendentes de novo, sem apagar nenhum dado. Útil pra revisar o fluxo ou treinar alguém."
-  - Indicador do estado atual ("Reset ativo desde …" se houver flag).
-  - Botão secundário **"Voltar ao normal"** (aparece só se reset estiver ativo) → limpa o flag.
+Usar a convenção do TanStack de **underscore final** no segmento para "escapar" do aninhamento — a URL fica idêntica, mas a rota deixa de ser filha do layout pai.
 
-**3. `src/contexts/DemoContext.tsx`**
-- Sem mudanças funcionais. O `OnboardingGuide` apenas lê `useDemo()` e reage.
+### Renomeações
 
-## Não muda
+1. `src/routes/admin.clientes.$clientId.fundos.$fundId.extrato.tsx`
+   → `src/routes/admin.clientes.$clientId.fundos.$fundId_.extrato.tsx`
+   - Atualizar `createFileRoute("/admin/clientes/$clientId/fundos/$fundId_/extrato")`
+   - URL final permanece `/admin/clientes/:clientId/fundos/:fundId/extrato`
 
-- Lógica de `fetchAdminStats` e dados reais — continuam intactos.
-- Botão "Guia" do header.
-- Conteúdo dos passos, ícones, CTAs.
-- Banco de dados.
+2. `src/routes/app.fundos.$fundId.extrato.tsx`
+   → `src/routes/app.fundos_.$fundId.extrato.tsx`
+   - Atualizar `createFileRoute("/app/fundos_/$fundId/extrato")`
+   - URL final permanece `/app/fundos/:fundId/extrato`
 
-## Resultado
+Os `<Link>` que apontam para essas rotas (no header do fundo admin e no card de fundo do cliente) **não mudam** — TanStack mapeia pelo `id` da rota e os params são os mesmos. A única coisa que pode precisar de ajuste é o `to=` se ele referenciar o id antigo; vou conferir e ajustar para o novo id se necessário.
 
-- Em **Configurações → Guia inicial**, o admin clica em "Resetar guia" e o checklist volta a aparecer 0/6 no dashboard.
-- Ao ligar o **Modo DEMO**, o guia automaticamente fica 0/6 também — perfeito pra demonstrar o fluxo do zero numa apresentação.
-- Nenhum dado real é tocado em nenhum dos dois casos.
+## Verificação
+
+- Abrir `/admin/clientes/.../fundos/.../extrato` → tela do extrato renderiza completa, sem o cabeçalho do fundo por cima.
+- Abrir `/app/fundos/.../extrato` como cliente → mesma coisa.
+- Console limpo do erro `_nonReactive` no preload.

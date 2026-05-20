@@ -5,12 +5,12 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
 import { ExtratoFundo } from "@/components/extrato/ExtratoFundo";
 
-export const Route = createFileRoute("/admin/clientes/$clientId/fundos/$fundId/extrato")({
+export const Route = createFileRoute("/admin/clientes/$clientId/fundos/$fundId_/extrato")({
   component: AdminExtrato,
 });
 
 function AdminExtrato() {
-  const { clientId, fundId } = useParams({ from: "/admin/clientes/$clientId/fundos/$fundId/extrato" });
+  const { clientId, fundId } = useParams({ from: "/admin/clientes/$clientId/fundos/$fundId_/extrato" });
   const [fundName, setFundName] = useState<string>("");
   const [clientName, setClientName] = useState<string>("");
 
