@@ -7,12 +7,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ChevronLeft } from "lucide-react";
 import { ExtratoFundo } from "@/components/extrato/ExtratoFundo";
 
-export const Route = createFileRoute("/app/fundos_/$fundId/extrato")({
+export const Route = createFileRoute("/app/fundos_/$fundId_/extrato")({
   component: ClientExtrato,
 });
 
 function ClientExtrato() {
-  const { fundId } = useParams({ from: "/app/fundos_/$fundId/extrato" });
+  const { fundId } = useParams({ from: "/app/fundos_/$fundId_/extrato" });
   const { user } = useAuth();
   const [state, setState] = useState<{ name: string; allowed: boolean } | null>(null);
 

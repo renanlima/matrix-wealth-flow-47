@@ -1,36 +1,25 @@
-# Corrigir botão "Extrato" que não abre
-
 ## Diagnóstico
 
-No TanStack Router file-based, segmentos separados por `.` viram **rotas aninhadas**. Os arquivos atuais:
+A rota cliente `src/routes/app.fundos_.$fundId.extrato.tsx` é tratada pelo TanStack Router como **filha** de `src/routes/app.fundos_.$fundId.tsx` (mesmo prefixo `app.fundos_.$fundId`). O componente pai (`ClientFundDetail`) **não renderiza `<Outlet />`**, então quando o usuário clica em "Extrato":
 
-- `src/routes/admin.clientes.$clientId.fundos.$fundId.extrato.tsx` vira filho de `admin.clientes.$clientId.fundos.$fundId.tsx`
-- `src/routes/app.fundos.$fundId.extrato.tsx` vira filho de `app.fundos.tsx`
+- A URL muda para `/app/fundos/{id}/extrato` ✓
+- O match acontece, mas o componente `ClientExtrato` (e portanto `<ExtratoFundo>`) nunca monta — fica visível só a página do fundo.
+- Resultado prático: "não puxa nada" e o botão "Voltar aos fundos" do extrato nem aparece (o usuário vê o botão da página de detalhe do fundo).
 
-Ambos os pais são páginas finais (sem `<Outlet />`). Quando o usuário clica em **Extrato**, a URL muda, mas o componente filho nunca é montado — o pai continua renderizando seu próprio conteúdo sem outlet. Visualmente parece que "o botão não abre".
+O lado admin não tem esse problema porque o arquivo já usa o sufixo `_` para escapar do nesting: `admin.clientes.$clientId.fundos.$fundId_.extrato.tsx`.
 
-O erro no console (`_nonReactive` durante `preloadRoute`) é um efeito colateral do preload em uma árvore inconsistente.
+## Correção (mesmo padrão do admin)
 
-## Correção
+1. Renomear `src/routes/app.fundos_.$fundId.extrato.tsx` → `src/routes/app.fundos_.$fundId_.extrato.tsx` (adiciona `_` em `$fundId` para desnestar do detalhe do fundo).
+2. Dentro do arquivo:
+   - `createFileRoute("/app/fundos_/$fundId/extrato")` → `createFileRoute("/app/fundos_/$fundId_/extrato")`
+   - `useParams({ from: "/app/fundos_/$fundId/extrato" })` → idem com `$fundId_`
+3. Em `src/routes/app.fundos.tsx`, atualizar o `<Link>` do botão "Extrato":
+   - `to="/app/fundos_/$fundId/extrato"` → `to="/app/fundos_/$fundId_/extrato"`
+4. `src/routeTree.gen.ts` é regenerado pelo plugin do Vite — não editar manualmente.
 
-Usar a convenção do TanStack de **underscore final** no segmento para "escapar" do aninhamento — a URL fica idêntica, mas a rota deixa de ser filha do layout pai.
+A URL pública final continua `/app/fundos/{id}/extrato`. O botão "Voltar aos fundos" no `ClientExtrato` já aponta para `/app/fundos` e voltará a funcionar assim que o componente passar a montar.
 
-### Renomeações
+## Fora do escopo
 
-1. `src/routes/admin.clientes.$clientId.fundos.$fundId.extrato.tsx`
-   → `src/routes/admin.clientes.$clientId.fundos.$fundId_.extrato.tsx`
-   - Atualizar `createFileRoute("/admin/clientes/$clientId/fundos/$fundId_/extrato")`
-   - URL final permanece `/admin/clientes/:clientId/fundos/:fundId/extrato`
-
-2. `src/routes/app.fundos.$fundId.extrato.tsx`
-   → `src/routes/app.fundos_.$fundId.extrato.tsx`
-   - Atualizar `createFileRoute("/app/fundos_/$fundId/extrato")`
-   - URL final permanece `/app/fundos/:fundId/extrato`
-
-Os `<Link>` que apontam para essas rotas (no header do fundo admin e no card de fundo do cliente) **não mudam** — TanStack mapeia pelo `id` da rota e os params são os mesmos. A única coisa que pode precisar de ajuste é o `to=` se ele referenciar o id antigo; vou conferir e ajustar para o novo id se necessário.
-
-## Verificação
-
-- Abrir `/admin/clientes/.../fundos/.../extrato` → tela do extrato renderiza completa, sem o cabeçalho do fundo por cima.
-- Abrir `/app/fundos/.../extrato` como cliente → mesma coisa.
-- Console limpo do erro `_nonReactive` no preload.
+- Nenhuma mudança em `ExtratoFundo`, em `extrato.ts`, no admin, na migração SQL, ou no `app.fundos_.$fundId.tsx`. Só roteamento.
