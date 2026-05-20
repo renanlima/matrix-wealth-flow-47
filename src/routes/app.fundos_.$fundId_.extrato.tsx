@@ -12,7 +12,7 @@ export const Route = createFileRoute("/app/fundos_/$fundId_/extrato")({
 });
 
 function ClientExtrato() {
-  const { fundId } = useParams({ from: "/app/fundos_/$fundId_/extrato" });
+  const { fundId_: fundId } = useParams({ from: "/app/fundos_/$fundId_/extrato" });
   const { user } = useAuth();
   const [state, setState] = useState<{ name: string; allowed: boolean } | null>(null);
 

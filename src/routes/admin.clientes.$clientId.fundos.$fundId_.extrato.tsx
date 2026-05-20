@@ -10,7 +10,7 @@ export const Route = createFileRoute("/admin/clientes/$clientId/fundos/$fundId_/
 });
 
 function AdminExtrato() {
-  const { clientId, fundId } = useParams({ from: "/admin/clientes/$clientId/fundos/$fundId_/extrato" });
+  const { clientId, fundId_: fundId } = useParams({ from: "/admin/clientes/$clientId/fundos/$fundId_/extrato" });
   const [fundName, setFundName] = useState<string>("");
   const [clientName, setClientName] = useState<string>("");
 
