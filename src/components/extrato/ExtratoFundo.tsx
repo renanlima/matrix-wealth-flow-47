@@ -14,7 +14,7 @@ import { formatDate, formatUSD, pnlClass } from "@/lib/format";
 import { generatePdfFromElement } from "@/lib/pdf";
 import { buildExtratoEvents, type ExtratoEvent, type ExtratoEventType } from "@/lib/extrato";
 
-const ALL_TYPES: ExtratoEventType[] = ["Compra", "Venda", "Rendimento", "Encerramento", "Taxa"];
+const ALL_TYPES: ExtratoEventType[] = ["Compra", "Venda", "Rendimento", "Encerramento", "Taxa", "Aporte", "Retirada"];
 const PAGE_SIZE = 100;
 
 interface Props {
