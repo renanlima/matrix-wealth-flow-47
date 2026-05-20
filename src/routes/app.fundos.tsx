@@ -4,14 +4,14 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Money, CryptoQty, Pct } from "@/components/Money";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Money, Pct } from "@/components/Money";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { FileText } from "lucide-react";
-import { formatDate, formatUSD, formatPct, pnlClass } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { ClientHoldingsTable } from "@/components/client/ClientHoldingsTable";
 
 export const Route = createFileRoute("/app/fundos")({
   component: ClientFunds,
