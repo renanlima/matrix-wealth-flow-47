@@ -164,6 +164,7 @@ export function FixedIncomeTab({ clientId }: { clientId: string }) {
                         {!r.data_saida && (
                           <Button variant="outline" size="sm" onClick={() => exit(r)}>Encerrar</Button>
                         )}
+                        <EditFixedIncomeDialog row={r} funds={funds} onUpdated={load} />
                         <Button variant="ghost" size="icon" onClick={() => remove(r.id)}>
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
