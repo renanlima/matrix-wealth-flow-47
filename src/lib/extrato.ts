@@ -63,6 +63,20 @@ interface PerformanceHistoryRow {
   fund_id: string;
 }
 
+interface DepositRow {
+  id: string;
+  deposit_date: string;
+  amount_usd: number | string;
+  notes: string | null;
+}
+
+interface WithdrawalRow {
+  id: string;
+  withdraw_date: string;
+  amount_usd: number | string;
+  notes: string | null;
+}
+
 const MONTHS_PT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
 function fmtUsd(n: number) {
@@ -81,6 +95,8 @@ export function buildExtratoEvents(input: {
   realizations: RealizationRow[];
   fixedIncome: FixedIncomeRow[];
   fees: PerformanceHistoryRow[];
+  deposits?: DepositRow[];
+  withdrawals?: WithdrawalRow[];
 }): ExtratoEvent[] {
   const holdingById = new Map(input.holdings.map((h) => [h.id, h]));
   const events: ExtratoEvent[] = [];
