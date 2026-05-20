@@ -28,7 +28,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Plus, ChevronLeft, DollarSign, Lock } from "lucide-react";
 import { Money, CryptoQty, Pct } from "@/components/Money";
 import { toast } from "sonner";
-import { formatDate, parseUsdInput } from "@/lib/format";
+import { formatDate, parseUsdInput, formatUSD, formatPct, pnlClass } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 interface PHRow {
   id: string; year: number; month: number;
@@ -169,7 +170,8 @@ function FundDetail() {
                   <TableRow>
                     <TableHead>Moeda</TableHead>
                     <TableHead className="text-right">Qtd</TableHead>
-                    <TableHead className="text-right">Preço entrada</TableHead>
+                    <TableHead className="text-right">Valor Total (USD)</TableHead>
+                    <TableHead className="text-right">Preço Médio</TableHead>
                     <TableHead className="text-right">Preço atual</TableHead>
                     <TableHead className="text-right">P&L</TableHead>
                     <TableHead>Status</TableHead>
@@ -179,15 +181,17 @@ function FundDetail() {
                 <TableBody>
                   {holdings.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
+                      <TableCell colSpan={8} className="text-center py-6 text-muted-foreground">
                         Sem posições.
                       </TableCell>
                     </TableRow>
                   )}
                   {holdings.map((h) => {
-                    const cur = prices.get(h.coin_symbol.toUpperCase()) ?? 0;
+                    const hasPrice = prices.has(h.coin_symbol.toUpperCase());
+                    const cur = prices.get(h.coin_symbol.toUpperCase()) ?? Number(h.entry_price_usd);
                     const cost = Number(h.quantity) * Number(h.entry_price_usd);
                     const market = Number(h.quantity) * cur;
+                    const pnl = market - cost;
                     const pnlPct = cost > 0 ? ((market - cost) / cost) * 100 : 0;
                     return (
                       <TableRow key={h.id}>
@@ -196,12 +200,18 @@ function FundDetail() {
                           <div className="text-xs text-muted-foreground">{h.coin_name ?? "—"}</div>
                         </TableCell>
                         <TableCell className="text-right"><CryptoQty qty={h.quantity} /></TableCell>
+                        <TableCell className="text-right"><Money usd={market} /></TableCell>
                         <TableCell className="text-right"><Money usd={h.entry_price_usd} /></TableCell>
                         <TableCell className="text-right">
-                          {cur > 0 ? <Money usd={cur} /> : <span className="text-muted-foreground text-xs">—</span>}
+                          {hasPrice ? <Money usd={cur} /> : <span className="text-muted-foreground text-xs">—</span>}
                         </TableCell>
                         <TableCell className="text-right">
-                          {h.status === "ativa" && cur > 0 ? <Pct value={pnlPct} /> : "—"}
+                          {h.status === "ativa" ? (
+                            <div className={cn("font-mono tabular-nums leading-tight", pnlClass(pnl))}>
+                              <div>{pnl >= 0 ? "+" : ""}{formatUSD(pnl)}</div>
+                              <div className="text-xs opacity-80">({formatPct(pnlPct)})</div>
+                            </div>
+                          ) : "—"}
                         </TableCell>
                         <TableCell>
                           <span className={`text-xs font-mono uppercase ${h.status === "ativa" ? "text-success" : "text-muted-foreground"}`}>

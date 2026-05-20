@@ -8,7 +8,7 @@ import { Money, CryptoQty, Pct } from "@/components/Money";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatUSD, formatPct, pnlClass } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/fundos")({
@@ -48,7 +48,7 @@ function ClientFunds() {
     const active = holdings.filter((h) => h.status === "ativa");
     const cost = active.reduce((s, h) => s + Number(h.quantity) * Number(h.entry_price_usd), 0);
     const market = active.reduce((s, h) => {
-      const cur = prices.get(h.coin_symbol.toUpperCase()) ?? 0;
+      const cur = prices.get(h.coin_symbol.toUpperCase()) ?? Number(h.entry_price_usd);
       return s + Number(h.quantity) * cur;
     }, 0);
     return { cost, market, pnl: market - cost, pct: cost > 0 ? ((market - cost) / cost) * 100 : 0 };
@@ -92,7 +92,7 @@ function ClientFunds() {
           : allFundHoldings.filter((h) => h.status === "ativa");
         const totalCost = fundHoldings.reduce((s, h) => s + Number(h.quantity) * Number(h.entry_price_usd), 0);
         const totalMarket = fundHoldings.filter((h) => h.status === "ativa").reduce((s, h) => {
-          const cur = prices.get(h.coin_symbol.toUpperCase()) ?? 0;
+          const cur = prices.get(h.coin_symbol.toUpperCase()) ?? Number(h.entry_price_usd);
           return s + Number(h.quantity) * cur;
         }, 0);
         const activeCost = fundHoldings.filter((h) => h.status === "ativa").reduce((s, h) => s + Number(h.quantity) * Number(h.entry_price_usd), 0);
@@ -118,28 +118,37 @@ function ClientFunds() {
                   <TableRow>
                     <TableHead>Moeda</TableHead>
                     <TableHead className="text-right">Qtd</TableHead>
-                    <TableHead className="text-right">Preço médio</TableHead>
+                    <TableHead className="text-right">Valor Total (USD)</TableHead>
+                    <TableHead className="text-right">Preço Médio</TableHead>
                     <TableHead className="text-right">Preço atual</TableHead>
                     <TableHead className="text-right">P&L</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {fundHoldings.length === 0 && (
-                    <TableRow><TableCell colSpan={5} className="text-center py-6 text-muted-foreground text-sm">Sem posições.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={6} className="text-center py-6 text-muted-foreground text-sm">Sem posições.</TableCell></TableRow>
                   )}
                   {fundHoldings.map((h) => {
-                    const cur = prices.get(h.coin_symbol.toUpperCase()) ?? 0;
+                    const hasPrice = prices.has(h.coin_symbol.toUpperCase());
+                    const cur = prices.get(h.coin_symbol.toUpperCase()) ?? Number(h.entry_price_usd);
                     const cost = Number(h.quantity) * Number(h.entry_price_usd);
                     const market = Number(h.quantity) * cur;
+                    const pnl = market - cost;
                     const pnlH = cost > 0 ? ((market - cost) / cost) * 100 : 0;
                     return (
                       <TableRow key={h.id}>
                         <TableCell className="font-mono font-semibold">{h.coin_symbol}</TableCell>
                         <TableCell className="text-right"><CryptoQty qty={h.quantity} /></TableCell>
+                        <TableCell className="text-right"><Money usd={market} /></TableCell>
                         <TableCell className="text-right"><Money usd={h.entry_price_usd} /></TableCell>
-                        <TableCell className="text-right">{cur > 0 ? <Money usd={cur} /> : "—"}</TableCell>
+                        <TableCell className="text-right">{hasPrice ? <Money usd={cur} /> : "—"}</TableCell>
                         <TableCell className="text-right">
-                          {h.status === "ativa" && cur > 0 ? <Pct value={pnlH} /> : <span className="text-xs text-muted-foreground">{h.status}</span>}
+                          {h.status === "ativa" ? (
+                            <div className={cn("font-mono tabular-nums leading-tight", pnlClass(pnl))}>
+                              <div>{pnl >= 0 ? "+" : ""}{formatUSD(pnl)}</div>
+                              <div className="text-xs opacity-80">({formatPct(pnlH)})</div>
+                            </div>
+                          ) : <span className="text-xs text-muted-foreground">{h.status}</span>}
                         </TableCell>
                       </TableRow>
                     );

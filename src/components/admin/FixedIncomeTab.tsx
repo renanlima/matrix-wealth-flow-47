@@ -17,6 +17,7 @@ import {
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Money, Pct } from "@/components/Money";
+import { Badge } from "@/components/ui/badge";
 import { formatDate, parseUsdInput } from "@/lib/format";
 
 interface Fund { id: string; name: string; status: string; }
@@ -140,7 +141,12 @@ export function FixedIncomeTab({ clientId }: { clientId: string }) {
                     </TableCell>
                     <TableCell className="text-xs">{fund?.name ?? "—"}</TableCell>
                     <TableCell className="text-right"><Money usd={aplicado} /></TableCell>
-                    <TableCell className="text-right font-mono text-xs">{Number(r.taxa_anual_pct).toFixed(2)}%</TableCell>
+                    <TableCell className="text-right font-mono text-xs">
+                      <span className="inline-flex items-center gap-1 justify-end">
+                        {Number(r.taxa_anual_pct).toFixed(2)}%
+                        <Badge variant="outline" className="text-[10px] py-0 px-1 font-normal">variável</Badge>
+                      </span>
+                    </TableCell>
                     <TableCell className="text-right">
                       <Money usd={atual} />
                       <div className="text-xs"><Pct value={pct} /></div>

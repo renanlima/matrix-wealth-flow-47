@@ -7,6 +7,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Money, Pct } from "@/components/Money";
+import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/format";
 
 export const Route = createFileRoute("/app/rendimentos")({
@@ -115,7 +116,12 @@ function ClientFixedIncome() {
                     </TableCell>
                     <TableCell className="text-xs">{funds.get(r.fund_id) ?? "—"}</TableCell>
                     <TableCell className="text-right"><Money usd={aplicado} /></TableCell>
-                    <TableCell className="text-right font-mono text-xs">{Number(r.taxa_anual_pct).toFixed(2)}%</TableCell>
+                    <TableCell className="text-right font-mono text-xs">
+                      <span className="inline-flex items-center gap-1 justify-end">
+                        {Number(r.taxa_anual_pct).toFixed(2)}%
+                        <Badge variant="outline" className="text-[10px] py-0 px-1 font-normal">variável</Badge>
+                      </span>
+                    </TableCell>
                     <TableCell className="text-right">
                       <Money usd={atual} />
                       <div className="text-xs"><Pct value={pct} /></div>
