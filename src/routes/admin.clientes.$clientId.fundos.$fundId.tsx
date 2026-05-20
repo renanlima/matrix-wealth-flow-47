@@ -495,7 +495,7 @@ function RealizeDialog({ holding, onDone }: { holding: Holding; onDone: () => vo
       _qty: qtyNum,
       _exit_price: exitPriceNum,
       _exit_date: date,
-      _notes: null,
+      _notes: undefined,
     });
     setSubmitting(false);
     if (error) { toast.error(error.message); return; }
