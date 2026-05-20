@@ -25,7 +25,7 @@ import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/ui/money-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, ChevronLeft, DollarSign, Lock, Pencil } from "lucide-react";
+import { Plus, ChevronLeft, DollarSign, Lock, Pencil, FileText } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Money, CryptoQty, Pct } from "@/components/Money";
 import { toast } from "sonner";
@@ -144,6 +144,11 @@ function FundDetail() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Link to="/admin/clientes/$clientId/fundos/$fundId/extrato" params={{ clientId, fundId }}>
+            <Button variant="outline" size="sm">
+              <FileText className="h-4 w-4 mr-1" /> Extrato
+            </Button>
+          </Link>
           <NewHoldingDialog fundId={fundId} onCreated={load} />
           {fund?.status === "ativo" && (
             <Button variant="outline" size="sm" onClick={closeFund}>
