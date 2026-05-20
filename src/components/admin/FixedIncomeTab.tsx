@@ -14,7 +14,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { Money, Pct } from "@/components/Money";
 import { Badge } from "@/components/ui/badge";
@@ -164,6 +164,7 @@ export function FixedIncomeTab({ clientId }: { clientId: string }) {
                         {!r.data_saida && (
                           <Button variant="outline" size="sm" onClick={() => exit(r)}>Encerrar</Button>
                         )}
+                        <EditFixedIncomeDialog row={r} funds={funds} onUpdated={load} />
                         <Button variant="ghost" size="icon" onClick={() => remove(r.id)}>
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
@@ -274,6 +275,112 @@ function NewFixedIncomeDialog({ funds, onCreated }: { funds: Fund[]; onCreated: 
           </div>
           <DialogFooter>
             <Button type="submit" disabled={submitting} className="glow-cyan">{submitting ? "Salvando..." : "Registrar"}</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditFixedIncomeDialog({ row, funds, onUpdated }: { row: FixedIncomeRow; funds: Fund[]; onUpdated: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({
+    fund_id: row.fund_id,
+    product_name: row.product_name,
+    asset_symbol: row.asset_symbol ?? "",
+    valor_aplicado_usd: String(row.valor_aplicado_usd),
+    taxa_anual_pct: String(row.taxa_anual_pct),
+    preco_entrada_usd: row.preco_entrada_usd != null ? String(row.preco_entrada_usd) : "",
+    data_registro: row.data_registro,
+    data_saida: row.data_saida ?? "",
+    notes: row.notes ?? "",
+  });
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.fund_id) { toast.error("Selecione um fundo"); return; }
+    setSubmitting(true);
+    const { error } = await supabase.from("fixed_income").update({
+      fund_id: form.fund_id,
+      product_name: form.product_name,
+      asset_symbol: form.asset_symbol.trim().toUpperCase() || null,
+      valor_aplicado_usd: parseUsdInput(form.valor_aplicado_usd),
+      taxa_anual_pct: Number(form.taxa_anual_pct),
+      preco_entrada_usd: form.preco_entrada_usd ? parseUsdInput(form.preco_entrada_usd) : null,
+      data_registro: form.data_registro,
+      data_saida: form.data_saida || null,
+      notes: form.notes || null,
+    }).eq("id", row.id);
+    setSubmitting(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Rendimento atualizado");
+    setOpen(false);
+    onUpdated();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="icon" aria-label="Editar">
+          <Pencil className="h-3.5 w-3.5" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Editar rendimento</DialogTitle>
+          <DialogDescription>Renda fixa, treasury, stablecoin yield, etc.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={submit} className="space-y-3">
+          <div className="space-y-1.5">
+            <Label>Fundo *</Label>
+            <Select value={form.fund_id} onValueChange={(v) => setForm({ ...form, fund_id: v })}>
+              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+              <SelectContent>
+                {funds.map((f) => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Produto *</Label>
+              <Input value={form.product_name} onChange={(e) => setForm({ ...form, product_name: e.target.value })} required />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Ticker (opcional)</Label>
+              <Input className="font-mono uppercase" value={form.asset_symbol} onChange={(e) => setForm({ ...form, asset_symbol: e.target.value })} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Valor aplicado USD *</Label>
+              <MoneyInput decimals={2} value={form.valor_aplicado_usd} onValueChange={(d) => setForm({ ...form, valor_aplicado_usd: d })} required />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Taxa anual (%) *</Label>
+              <Input type="number" step="0.01" value={form.taxa_anual_pct} onChange={(e) => setForm({ ...form, taxa_anual_pct: e.target.value })} required />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Preço entrada (opcional)</Label>
+              <MoneyInput decimals={8} value={form.preco_entrada_usd} onValueChange={(d) => setForm({ ...form, preco_entrada_usd: d })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Data de registro *</Label>
+              <Input type="date" value={form.data_registro} onChange={(e) => setForm({ ...form, data_registro: e.target.value })} required />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Data de saída (opcional)</Label>
+            <Input type="date" value={form.data_saida} onChange={(e) => setForm({ ...form, data_saida: e.target.value })} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Observações</Label>
+            <Textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+          </div>
+          <DialogFooter>
+            <Button type="submit" disabled={submitting}>{submitting ? "Salvando..." : "Salvar"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

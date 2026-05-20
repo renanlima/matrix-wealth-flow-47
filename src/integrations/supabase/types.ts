@@ -671,6 +671,7 @@ export type Database = {
           id: string
           notes: string | null
           profit_usd: number
+          quantity: number
           total_usd: number
         }
         Insert: {
@@ -681,6 +682,7 @@ export type Database = {
           id?: string
           notes?: string | null
           profit_usd: number
+          quantity: number
           total_usd: number
         }
         Update: {
@@ -691,6 +693,7 @@ export type Database = {
           id?: string
           notes?: string | null
           profit_usd?: number
+          quantity?: number
           total_usd?: number
         }
         Relationships: [
@@ -891,6 +894,16 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      realize_partial: {
+        Args: {
+          _exit_date: string
+          _exit_price: number
+          _holding_id: string
+          _notes?: string
+          _qty: number
+        }
+        Returns: string
       }
     }
     Enums: {
