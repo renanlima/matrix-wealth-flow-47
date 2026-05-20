@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,6 +8,8 @@ import { Money, CryptoQty, Pct } from "@/components/Money";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { FileText } from "lucide-react";
 import { formatDate, formatUSD, formatPct, pnlClass } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -109,6 +111,11 @@ function ClientFunds() {
                     {f.status}
                   </span>
                   <Pct value={pnlPct} />
+                  <Link to="/app/fundos/$fundId/extrato" params={{ fundId: f.id }}>
+                    <Button variant="ghost" size="sm" className="h-7 px-2">
+                      <FileText className="h-3.5 w-3.5 mr-1" /> Extrato
+                    </Button>
+                  </Link>
                 </div>
               </div>
             </CardHeader>
