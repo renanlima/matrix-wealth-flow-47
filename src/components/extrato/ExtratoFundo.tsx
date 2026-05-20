@@ -345,6 +345,8 @@ function TypeBadge({ ev }: { ev: ExtratoEvent }) {
       case "Rendimento": return "text-success";
       case "Encerramento": return "text-muted-foreground";
       case "Taxa": return "text-destructive";
+      case "Aporte": return "text-success";
+      case "Retirada": return "text-orange-700";
     }
   })();
   return (
