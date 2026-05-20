@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
 import { ExtratoFundo } from "@/components/extrato/ExtratoFundo";
 
-export const Route = createFileRoute("/admin/clientes/$clientId/fundos/$fundId/extrato")({
+export const Route = createFileRoute("/admin/clientes/$clientId/fundos/$fundId_/extrato")({
   component: AdminExtrato,
 });
 
