@@ -104,7 +104,7 @@ export function ExtratoFundo({ fundId, fundName, clientName }: Props) {
   }, [events, selectedTypes, dateFrom, dateTo, search]);
 
   const summary = useMemo(() => {
-    let bought = 0, sold = 0, realizedPnl = 0, yields = 0, fees = 0;
+    let bought = 0, sold = 0, realizedPnl = 0, yields = 0, fees = 0, deposits = 0, withdrawals = 0;
     for (const e of filtered) {
       switch (e.type) {
         case "Compra": bought += -e.valueUsd; break;
@@ -115,10 +115,12 @@ export function ExtratoFundo({ fundId, fundName, clientName }: Props) {
         case "Rendimento": yields += -e.valueUsd; break;
         case "Encerramento": yields -= e.valueUsd; break; // saída de aplicação volta como crédito
         case "Taxa": fees += -e.valueUsd; break;
+        case "Aporte": deposits += e.valueUsd; break;
+        case "Retirada": withdrawals += -e.valueUsd; break;
       }
     }
-    const net = sold - bought - fees; // visão "caixa-like" do período (sem aporte/retirada)
-    return { bought, sold, realizedPnl, yields, fees, net };
+    const net = sold - bought - fees + deposits - withdrawals;
+    return { bought, sold, realizedPnl, yields, fees, deposits, withdrawals, net };
   }, [filtered]);
 
   const toggleType = (t: ExtratoEventType) => {
