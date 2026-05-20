@@ -6,7 +6,9 @@ export type ExtratoEventType =
   | "Venda"
   | "Rendimento"
   | "Encerramento"
-  | "Taxa";
+  | "Taxa"
+  | "Aporte"
+  | "Retirada";
 
 export interface ExtratoEvent {
   id: string;
