@@ -119,7 +119,7 @@ function ClientFunds() {
                     {f.status}
                   </span>
                   <Pct value={pnlPct} />
-                  <Link to="/app/fundos_/$fundId/extrato" params={{ fundId: f.id }}>
+                  <Link to="/app/fundos_/$fundId_/extrato" params={{ fundId: f.id }}>
                     <Button variant="ghost" size="sm" className="h-7 px-2">
                       <FileText className="h-3.5 w-3.5 mr-1" /> Extrato
                     </Button>
