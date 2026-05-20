@@ -187,13 +187,16 @@ function FundDetail() {
                       </TableCell>
                     </TableRow>
                   )}
-                  {holdings.map((h) => {
+                  {(() => {
+                    const holdingsWithSales = new Set(realizations.map((r) => r.holding_id));
+                    return holdings.map((h) => {
                     const hasPrice = prices.has(h.coin_symbol.toUpperCase());
                     const cur = prices.get(h.coin_symbol.toUpperCase()) ?? Number(h.entry_price_usd);
                     const cost = Number(h.quantity) * Number(h.entry_price_usd);
                     const market = Number(h.quantity) * cur;
                     const pnl = market - cost;
                     const pnlPct = cost > 0 ? ((market - cost) / cost) * 100 : 0;
+                    const locked = holdingsWithSales.has(h.id);
                     return (
                       <TableRow key={h.id}>
                         <TableCell>
@@ -220,13 +223,19 @@ function FundDetail() {
                           </span>
                         </TableCell>
                         <TableCell className="text-right">
-                          {h.status === "ativa" && (
-                            <RealizeDialog holding={h} onDone={load} />
-                          )}
+                          <div className="flex gap-1 justify-end">
+                            {h.status === "ativa" && (
+                              <EditHoldingButton holding={h} locked={locked} onDone={load} />
+                            )}
+                            {h.status === "ativa" && (
+                              <RealizeDialog holding={h} onDone={load} />
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
-                  })}
+                    });
+                  })()}
                 </TableBody>
               </Table>
             </CardContent>
