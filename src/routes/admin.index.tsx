@@ -17,7 +17,7 @@ import {
   ArrowRight,
   DollarSign,
 } from "lucide-react";
-import { formatDateTime, formatDate } from "@/lib/format";
+import { formatDateTime, formatDate, formatUSD, formatPct, pnlClass } from "@/lib/format";
 import {
   BarChart,
   Bar,
@@ -535,12 +535,9 @@ function AdminDashboard() {
                       <div className="text-xs text-muted-foreground font-mono">{m.coin}</div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <Money
-                      usd={m.pnl}
-                      className={cn("text-sm", m.pnl >= 0 ? "text-success" : "text-destructive")}
-                    />
-                    <Pct value={m.pct} className="text-xs w-16 text-right" />
+                  <div className={cn("font-mono tabular-nums leading-tight text-right", pnlClass(m.pnl))}>
+                    <div className="text-sm">{m.pnl >= 0 ? "+" : ""}{formatUSD(m.pnl)}</div>
+                    <div className="text-xs opacity-80">({formatPct(m.pct)})</div>
                   </div>
                 </div>
               ))}

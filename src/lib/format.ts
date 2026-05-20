@@ -54,6 +54,11 @@ export function pctClass(value: number | null | undefined): string {
   return value > 0 ? "text-success" : "text-destructive";
 }
 
+export function pnlClass(pnl: number | null | undefined): string {
+  if (pnl == null || isNaN(pnl) || pnl === 0) return "text-muted-foreground";
+  return pnl > 0 ? "text-success" : "text-destructive";
+}
+
 export function formatDate(d: string | Date | null | undefined): string {
   if (!d) return "—";
   const date = typeof d === "string" ? new Date(d) : d;
