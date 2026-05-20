@@ -177,6 +177,7 @@ export type Database = {
           client_id: string
           created_at: string
           deposit_date: string
+          fund_id: string | null
           id: string
           notes: string | null
         }
@@ -185,6 +186,7 @@ export type Database = {
           client_id: string
           created_at?: string
           deposit_date?: string
+          fund_id?: string | null
           id?: string
           notes?: string | null
         }
@@ -193,6 +195,7 @@ export type Database = {
           client_id?: string
           created_at?: string
           deposit_date?: string
+          fund_id?: string | null
           id?: string
           notes?: string | null
         }
@@ -202,6 +205,20 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deposits_fund_id_fkey"
+            columns: ["fund_id"]
+            isOneToOne: false
+            referencedRelation: "client_funds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deposits_fund_id_fkey"
+            columns: ["fund_id"]
+            isOneToOne: false
+            referencedRelation: "funds"
             referencedColumns: ["id"]
           },
         ]
@@ -749,6 +766,7 @@ export type Database = {
           amount_usd: number
           client_id: string
           created_at: string
+          fund_id: string | null
           id: string
           notes: string | null
           withdraw_date: string
@@ -757,6 +775,7 @@ export type Database = {
           amount_usd: number
           client_id: string
           created_at?: string
+          fund_id?: string | null
           id?: string
           notes?: string | null
           withdraw_date?: string
@@ -765,6 +784,7 @@ export type Database = {
           amount_usd?: number
           client_id?: string
           created_at?: string
+          fund_id?: string | null
           id?: string
           notes?: string | null
           withdraw_date?: string
@@ -775,6 +795,20 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "withdrawals_fund_id_fkey"
+            columns: ["fund_id"]
+            isOneToOne: false
+            referencedRelation: "client_funds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "withdrawals_fund_id_fkey"
+            columns: ["fund_id"]
+            isOneToOne: false
+            referencedRelation: "funds"
             referencedColumns: ["id"]
           },
         ]

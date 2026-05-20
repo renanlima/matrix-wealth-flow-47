@@ -4,14 +4,14 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Money, CryptoQty, Pct } from "@/components/Money";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Money, Pct } from "@/components/Money";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { FileText } from "lucide-react";
-import { formatDate, formatUSD, formatPct, pnlClass } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { ClientHoldingsTable } from "@/components/client/ClientHoldingsTable";
 
 export const Route = createFileRoute("/app/fundos")({
   component: ClientFunds,
@@ -104,7 +104,15 @@ function ClientFunds() {
           <Card key={f.id} className="border-primary/10">
             <CardHeader>
               <div className="flex items-center justify-between flex-wrap gap-2">
-                <CardTitle className="text-base">{f.name}</CardTitle>
+                <CardTitle className="text-base">
+                  <Link
+                    to="/app/fundos_/$fundId"
+                    params={{ fundId: f.id }}
+                    className="hover:text-primary transition-colors"
+                  >
+                    {f.name}
+                  </Link>
+                </CardTitle>
                 <div className="flex items-center gap-4 text-xs">
                   <span className="text-muted-foreground">Início {formatDate(f.start_date)}</span>
                   <span className={f.status === "ativo" ? "text-success" : "text-muted-foreground"}>
@@ -120,48 +128,7 @@ function ClientFunds() {
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Moeda</TableHead>
-                    <TableHead className="text-right">Qtd</TableHead>
-                    <TableHead className="text-right">Valor Total (USD)</TableHead>
-                    <TableHead className="text-right">Preço Médio</TableHead>
-                    <TableHead className="text-right">Preço atual</TableHead>
-                    <TableHead className="text-right">P&L</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {fundHoldings.length === 0 && (
-                    <TableRow><TableCell colSpan={6} className="text-center py-6 text-muted-foreground text-sm">Sem posições.</TableCell></TableRow>
-                  )}
-                  {fundHoldings.map((h) => {
-                    const hasPrice = prices.has(h.coin_symbol.toUpperCase());
-                    const cur = prices.get(h.coin_symbol.toUpperCase()) ?? Number(h.entry_price_usd);
-                    const cost = Number(h.quantity) * Number(h.entry_price_usd);
-                    const market = Number(h.quantity) * cur;
-                    const pnl = market - cost;
-                    const pnlH = cost > 0 ? ((market - cost) / cost) * 100 : 0;
-                    return (
-                      <TableRow key={h.id}>
-                        <TableCell className="font-mono font-semibold">{h.coin_symbol}</TableCell>
-                        <TableCell className="text-right"><CryptoQty qty={h.quantity} /></TableCell>
-                        <TableCell className="text-right"><Money usd={market} /></TableCell>
-                        <TableCell className="text-right"><Money usd={h.entry_price_usd} /></TableCell>
-                        <TableCell className="text-right">{hasPrice ? <Money usd={cur} /> : "—"}</TableCell>
-                        <TableCell className="text-right">
-                          {h.status === "ativa" ? (
-                            <div className={cn("font-mono tabular-nums leading-tight", pnlClass(pnl))}>
-                              <div>{pnl >= 0 ? "+" : ""}{formatUSD(pnl)}</div>
-                              <div className="text-xs opacity-80">({formatPct(pnlH)})</div>
-                            </div>
-                          ) : <span className="text-xs text-muted-foreground">{h.status}</span>}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+              <ClientHoldingsTable holdings={fundHoldings} prices={prices} />
             </CardContent>
           </Card>
         );

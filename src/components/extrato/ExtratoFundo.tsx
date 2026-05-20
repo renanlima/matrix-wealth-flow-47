@@ -14,7 +14,7 @@ import { formatDate, formatUSD, pnlClass } from "@/lib/format";
 import { generatePdfFromElement } from "@/lib/pdf";
 import { buildExtratoEvents, type ExtratoEvent, type ExtratoEventType } from "@/lib/extrato";
 
-const ALL_TYPES: ExtratoEventType[] = ["Compra", "Venda", "Rendimento", "Encerramento", "Taxa"];
+const ALL_TYPES: ExtratoEventType[] = ["Compra", "Venda", "Rendimento", "Encerramento", "Taxa", "Aporte", "Retirada"];
 const PAGE_SIZE = 100;
 
 interface Props {
@@ -26,6 +26,7 @@ interface Props {
 export function ExtratoFundo({ fundId, fundName, clientName }: Props) {
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<ExtratoEvent[]>([]);
+  const [cashFetchFailed, setCashFetchFailed] = useState(false);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [selectedTypes, setSelectedTypes] = useState<Set<ExtratoEventType>>(new Set(ALL_TYPES));
@@ -50,14 +51,39 @@ export function ExtratoFundo({ fundId, fundName, clientName }: Props) {
         const { data: r } = await supabase.from("realizations").select("*").in("holding_id", ids);
         realizations = r ?? [];
       }
+
+      // Aportes/Retiradas alocados a este fundo (pode falhar se RLS/coluna não estiver pronta)
+      let deposits: any[] = [];
+      let withdrawals: any[] = [];
+      let cashFailed = false;
+      try {
+        const [{ data: d, error: de }, { data: w, error: we }] = await Promise.all([
+          supabase.from("deposits").select("id, deposit_date, amount_usd, notes, fund_id").eq("fund_id", fundId),
+          supabase.from("withdrawals").select("id, withdraw_date, amount_usd, notes, fund_id").eq("fund_id", fundId),
+        ]);
+        if (de || we) {
+          cashFailed = true;
+          console.error("Extrato: deposits/withdrawals query error", de ?? we);
+        } else {
+          deposits = d ?? [];
+          withdrawals = w ?? [];
+        }
+      } catch (err) {
+        cashFailed = true;
+        console.error("Extrato: deposits/withdrawals fetch failed", err);
+      }
+
       if (cancelled) return;
       const ev = buildExtratoEvents({
         holdings: holdings as any,
         realizations: realizations as any,
         fixedIncome: (fi ?? []) as any,
         fees: (ph ?? []) as any,
+        deposits: deposits as any,
+        withdrawals: withdrawals as any,
       });
       setEvents(ev);
+      setCashFetchFailed(cashFailed);
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -78,7 +104,7 @@ export function ExtratoFundo({ fundId, fundName, clientName }: Props) {
   }, [events, selectedTypes, dateFrom, dateTo, search]);
 
   const summary = useMemo(() => {
-    let bought = 0, sold = 0, realizedPnl = 0, yields = 0, fees = 0;
+    let bought = 0, sold = 0, realizedPnl = 0, yields = 0, fees = 0, deposits = 0, withdrawals = 0;
     for (const e of filtered) {
       switch (e.type) {
         case "Compra": bought += -e.valueUsd; break;
@@ -89,10 +115,12 @@ export function ExtratoFundo({ fundId, fundName, clientName }: Props) {
         case "Rendimento": yields += -e.valueUsd; break;
         case "Encerramento": yields -= e.valueUsd; break; // saída de aplicação volta como crédito
         case "Taxa": fees += -e.valueUsd; break;
+        case "Aporte": deposits += e.valueUsd; break;
+        case "Retirada": withdrawals += -e.valueUsd; break;
       }
     }
-    const net = sold - bought - fees; // visão "caixa-like" do período (sem aporte/retirada)
-    return { bought, sold, realizedPnl, yields, fees, net };
+    const net = sold - bought - fees + deposits - withdrawals;
+    return { bought, sold, realizedPnl, yields, fees, deposits, withdrawals, net };
   }, [filtered]);
 
   const toggleType = (t: ExtratoEventType) => {
@@ -151,13 +179,14 @@ export function ExtratoFundo({ fundId, fundName, clientName }: Props) {
         />
       </div>
 
-      <Alert>
-        <Info className="h-4 w-4" />
-        <AlertDescription>
-          Aportes e retiradas são geridos no caixa do cliente e ainda não estão vinculados a fundos
-          específicos. Em breve será possível alocá-los por fundo.
-        </AlertDescription>
-      </Alert>
+      {cashFetchFailed && (
+        <Alert>
+          <Info className="h-4 w-4" />
+          <AlertDescription>
+            Não foi possível carregar aportes e retiradas deste fundo. O extrato está mostrando apenas compras, vendas, rendimentos e taxas.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Filtros */}
       <Card>
@@ -316,6 +345,8 @@ function TypeBadge({ ev }: { ev: ExtratoEvent }) {
       case "Rendimento": return "text-success";
       case "Encerramento": return "text-muted-foreground";
       case "Taxa": return "text-destructive";
+      case "Aporte": return "text-success";
+      case "Retirada": return "text-orange-700";
     }
   })();
   return (
