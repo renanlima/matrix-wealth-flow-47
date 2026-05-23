@@ -36,6 +36,7 @@ export function ExtratoFundo({ fundId, fundName, clientName }: Props) {
   const snapshotRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (!fundId) { setLoading(false); setEvents([]); return; }
     let cancelled = false;
     (async () => {
       setLoading(true);
