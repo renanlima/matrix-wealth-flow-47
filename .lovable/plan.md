@@ -1,25 +1,15 @@
-## Diagnóstico
+Plano de correção:
 
-A rota cliente `src/routes/app.fundos_.$fundId.extrato.tsx` é tratada pelo TanStack Router como **filha** de `src/routes/app.fundos_.$fundId.tsx` (mesmo prefixo `app.fundos_.$fundId`). O componente pai (`ClientFundDetail`) **não renderiza `<Outlet />`**, então quando o usuário clica em "Extrato":
+1. Ajustar as rotas de extrato para manter o arquivo com `_` no nome, mas declarar o path com parâmetro `$fundId`:
+   - `/admin/clientes/$clientId/fundos/$fundId/extrato`
+   - `/app/fundos_/$fundId/extrato`
 
-- A URL muda para `/app/fundos/{id}/extrato` ✓
-- O match acontece, mas o componente `ClientExtrato` (e portanto `<ExtratoFundo>`) nunca monta — fica visível só a página do fundo.
-- Resultado prático: "não puxa nada" e o botão "Voltar aos fundos" do extrato nem aparece (o usuário vê o botão da página de detalhe do fundo).
+2. Ajustar os `useParams` dessas páginas para ler `fundId`, não `fundId_`.
 
-O lado admin não tem esse problema porque o arquivo já usa o sufixo `_` para escapar do nesting: `admin.clientes.$clientId.fundos.$fundId_.extrato.tsx`.
+3. Ajustar os links que apontam para o extrato para enviar `params={{ fundId }}` em vez de `fundId_`.
 
-## Correção (mesmo padrão do admin)
+4. Corrigir o botão “Voltar ao fundo” no extrato admin para continuar apontando para `/admin/clientes/$clientId/fundos/$fundId` com o ID correto.
 
-1. Renomear `src/routes/app.fundos_.$fundId.extrato.tsx` → `src/routes/app.fundos_.$fundId_.extrato.tsx` (adiciona `_` em `$fundId` para desnestar do detalhe do fundo).
-2. Dentro do arquivo:
-   - `createFileRoute("/app/fundos_/$fundId/extrato")` → `createFileRoute("/app/fundos_/$fundId_/extrato")`
-   - `useParams({ from: "/app/fundos_/$fundId/extrato" })` → idem com `$fundId_`
-3. Em `src/routes/app.fundos.tsx`, atualizar o `<Link>` do botão "Extrato":
-   - `to="/app/fundos_/$fundId/extrato"` → `to="/app/fundos_/$fundId_/extrato"`
-4. `src/routeTree.gen.ts` é regenerado pelo plugin do Vite — não editar manualmente.
+5. Adicionar uma proteção simples no componente `ExtratoFundo`: se `fundId` vier vazio/`undefined`, não executar queries com UUID inválido e mostrar estado vazio/seguro.
 
-A URL pública final continua `/app/fundos/{id}/extrato`. O botão "Voltar aos fundos" no `ClientExtrato` já aponta para `/app/fundos` e voltará a funcionar assim que o componente passar a montar.
-
-## Fora do escopo
-
-- Nenhuma mudança em `ExtratoFundo`, em `extrato.ts`, no admin, na migração SQL, ou no `app.fundos_.$fundId.tsx`. Só roteamento.
+Resultado esperado: a URL não terá mais `undefined`, as queries usarão o UUID real do fundo atual, e o extrato carregará movimentações de holdings, renda fixa, performance, aportes e retiradas vinculadas ao fundo.
