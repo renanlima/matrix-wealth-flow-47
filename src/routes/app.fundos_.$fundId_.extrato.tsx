@@ -25,7 +25,7 @@ function ClientExtrato() {
         .eq("id", fundId)
         .maybeSingle();
       if (!data) { setState({ name: "—", allowed: false }); return; }
-      setState({ name: data.name, allowed: data.client_id === user.id });
+      setState({ name: data.name ?? "—", allowed: data.client_id === user.id });
     })();
   }, [fundId, user]);
 

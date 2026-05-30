@@ -24,7 +24,7 @@ async function fetchClientFunds(userId: string) {
   ]);
   const funds = f ?? [];
   const prices = new Map((p ?? []).map((x) => [x.symbol.toUpperCase(), Number(x.price_usd)]));
-  const ids = funds.map((x) => x.id);
+  const ids = funds.map((x) => x.id).filter((x): x is string => !!x);
   let holdings: any[] = [];
   if (ids.length) {
     const { data: h } = await supabase.from("holdings").select("*").in("fund_id", ids);
@@ -128,7 +128,7 @@ function ClientFunds() {
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <ClientHoldingsTable holdings={fundHoldings} prices={prices} fundId={f.id} />
+              <ClientHoldingsTable holdings={fundHoldings} prices={prices} fundId={f.id ?? undefined} />
             </CardContent>
           </Card>
         );
