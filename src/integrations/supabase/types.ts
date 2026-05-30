@@ -862,6 +862,7 @@ export type Database = {
       client_performance_history: {
         Row: {
           alocacoes_usd: number | null
+          base_calculo_usd: number | null
           created_at: string | null
           desalocacoes_usd: number | null
           fechado_em: string | null
@@ -871,10 +872,12 @@ export type Database = {
           month: number | null
           patrimonio_fim_usd: number | null
           patrimonio_inicio_usd: number | null
+          taxa_aplicada_usd: number | null
           year: number | null
         }
         Insert: {
           alocacoes_usd?: number | null
+          base_calculo_usd?: number | null
           created_at?: string | null
           desalocacoes_usd?: number | null
           fechado_em?: string | null
@@ -884,10 +887,12 @@ export type Database = {
           month?: number | null
           patrimonio_fim_usd?: number | null
           patrimonio_inicio_usd?: number | null
+          taxa_aplicada_usd?: number | null
           year?: number | null
         }
         Update: {
           alocacoes_usd?: number | null
+          base_calculo_usd?: number | null
           created_at?: string | null
           desalocacoes_usd?: number | null
           fechado_em?: string | null
@@ -897,6 +902,7 @@ export type Database = {
           month?: number | null
           patrimonio_fim_usd?: number | null
           patrimonio_inicio_usd?: number | null
+          taxa_aplicada_usd?: number | null
           year?: number | null
         }
         Relationships: [
