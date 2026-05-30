@@ -945,6 +945,7 @@ export type Database = {
         }
         Returns: string
       }
+      user_owns_fund: { Args: { _fund_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "client"
