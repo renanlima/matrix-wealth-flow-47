@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Money, CryptoQty } from "@/components/Money";
 import { Button } from "@/components/ui/button";
 import { formatUSD, formatPct, pnlClass, formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { ChevronRight, ChevronDown, History, AlertTriangle } from "lucide-react";
+import { ChevronRight, ChevronDown, ChevronLeft, ChevronsLeft, ChevronsRight, History, AlertTriangle } from "lucide-react";
 import { PositionHistoryDialog } from "@/components/positions/PositionHistoryDialog";
+
+const PAGE_SIZE = 20;
 
 export interface ClientHoldingRow {
   id: string;
@@ -28,6 +30,7 @@ interface Props {
 export function ClientHoldingsTable({ holdings, prices, emptyMessage = "Sem posições.", fundId }: Props) {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [historySymbol, setHistorySymbol] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
 
   const toggleGroup = (symbol: string) => {
     setExpandedGroups((prev) => {
@@ -108,8 +111,27 @@ export function ClientHoldingsTable({ holdings, prices, emptyMessage = "Sem posi
     );
   };
 
+  // Paginação por GRUPO (moeda) — lotes expandidos não contam para o slot da página.
+  // Só ativa quando há mais de PAGE_SIZE moedas no fundo.
+  const allGroupEntries = [...groups.entries()];
+  const totalGroups = allGroupEntries.length;
+  const showPagination = totalGroups > PAGE_SIZE;
+  const totalPages = Math.max(1, Math.ceil(totalGroups / PAGE_SIZE));
+  // Clamp page caso a lista encolha (ex: filtro Mostrar encerradas off)
+  useEffect(() => {
+    if (page > 0 && page >= totalPages) setPage(0);
+  }, [page, totalPages]);
+  const safePage = Math.min(page, totalPages - 1);
+  const visibleEntries = showPagination
+    ? allGroupEntries.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE)
+    : allGroupEntries;
+  const rangeStart = showPagination ? safePage * PAGE_SIZE + 1 : 1;
+  const rangeEnd = showPagination
+    ? Math.min((safePage + 1) * PAGE_SIZE, totalGroups)
+    : totalGroups;
+
   const rows: React.ReactNode[] = [];
-  for (const [symbol, lots] of groups) {
+  for (const [symbol, lots] of visibleEntries) {
     if (lots.length === 1) {
       rows.push(renderHoldingRow(lots[0]));
       continue;
@@ -230,6 +252,63 @@ export function ClientHoldingsTable({ holdings, prices, emptyMessage = "Sem posi
           {rows}
         </TableBody>
       </Table>
+      {showPagination && (
+        <div className="flex items-center justify-between gap-2 px-3 py-2 border-t border-border/40 text-xs">
+          <div className="text-muted-foreground">
+            Moedas <span className="font-mono">{rangeStart}–{rangeEnd}</span> de{" "}
+            <span className="font-mono">{totalGroups}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setPage(0)}
+              disabled={safePage === 0}
+              aria-label="Primeira página"
+              title="Primeira página"
+            >
+              <ChevronsLeft className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={safePage === 0}
+              aria-label="Página anterior"
+              title="Página anterior"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </Button>
+            <span className="font-mono px-2 text-muted-foreground tabular-nums">
+              {safePage + 1} / {totalPages}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={safePage >= totalPages - 1}
+              aria-label="Próxima página"
+              title="Próxima página"
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setPage(totalPages - 1)}
+              disabled={safePage >= totalPages - 1}
+              aria-label="Última página"
+              title="Última página"
+            >
+              <ChevronsRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
       {fundId && (
         <PositionHistoryDialog
           open={historySymbol !== null}

@@ -106,7 +106,7 @@ function ClientFunds() {
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <CardTitle className="text-base">
                   <Link
-                    to="/app/fundos_/$fundId"
+                    to="/app/fundos/$fundId"
                     params={{ fundId: f.id }}
                     className="hover:text-primary transition-colors"
                   >

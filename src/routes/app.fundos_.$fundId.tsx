@@ -116,7 +116,7 @@ function ClientFundDetail() {
             </span>
           </div>
         </div>
-        <Link to="/app/fundos_/$fundId/extrato" params={{ fundId }}>
+        <Link to="/app/fundos/$fundId/extrato" params={{ fundId }}>
           <Button>
             <FileText className="h-4 w-4 mr-1" /> Ver extrato
           </Button>

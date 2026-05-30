@@ -14,7 +14,9 @@ export interface HoldingLike {
   quantity: number | string;
   entry_price_usd: number | string;
   coin_symbol: string;
-  purchase_date: string;
+  // Opcional pra permitir consumers que não selecionam o campo (ex: app.index dashboard
+  // só precisa de id/status/quantity/entry/symbol para o cálculo de patrimônio).
+  purchase_date?: string;
 }
 
 export interface RealizationLike {
