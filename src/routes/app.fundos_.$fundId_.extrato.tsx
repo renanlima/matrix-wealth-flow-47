@@ -20,7 +20,7 @@ function ClientExtrato() {
     if (!user) return;
     (async () => {
       const { data } = await supabase
-        .from("funds")
+        .from("client_funds")
         .select("name, client_id")
         .eq("id", fundId)
         .maybeSingle();

@@ -19,7 +19,7 @@ export const Route = createFileRoute("/app/fundos")({
 
 async function fetchClientFunds(userId: string) {
   const [{ data: f }, { data: p }] = await Promise.all([
-    supabase.from("funds").select("*").eq("client_id", userId).order("created_at", { ascending: false }),
+    supabase.from("client_funds").select("*").eq("client_id", userId).order("created_at", { ascending: false }),
     supabase.from("coin_prices").select("symbol, price_usd"),
   ]);
   const funds = f ?? [];
