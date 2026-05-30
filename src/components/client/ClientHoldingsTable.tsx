@@ -4,7 +4,7 @@ import { Money, CryptoQty } from "@/components/Money";
 import { Button } from "@/components/ui/button";
 import { formatUSD, formatPct, pnlClass, formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { ChevronRight, ChevronDown, History } from "lucide-react";
+import { ChevronRight, ChevronDown, History, AlertTriangle } from "lucide-react";
 import { PositionHistoryDialog } from "@/components/positions/PositionHistoryDialog";
 
 export interface ClientHoldingRow {
@@ -68,17 +68,27 @@ export function ClientHoldingsTable({ holdings, prices, emptyMessage = "Sem posi
           </div>
         </TableCell>
         <TableCell className="text-right"><CryptoQty qty={Number(h.quantity)} /></TableCell>
-        <TableCell className="text-right"><Money usd={market} /></TableCell>
-        <TableCell className="text-right"><Money usd={Number(h.entry_price_usd)} /></TableCell>
-        <TableCell className="text-right">{hasPrice ? <Money usd={cur} /> : "—"}</TableCell>
         <TableCell className="text-right">
-          {h.status === "ativa" ? (
+          {hasPrice ? <Money usd={market} /> : <span className="text-muted-foreground text-xs">—</span>}
+        </TableCell>
+        <TableCell className="text-right"><Money usd={Number(h.entry_price_usd)} /></TableCell>
+        <TableCell className="text-right">
+          {hasPrice ? (
+            <Money usd={cur} />
+          ) : (
+            <span className="inline-flex items-center gap-1 text-[11px] text-amber-500" title="Sem cotação atual">
+              <AlertTriangle className="h-3 w-3" /> sem cotação
+            </span>
+          )}
+        </TableCell>
+        <TableCell className="text-right">
+          {h.status === "ativa" && hasPrice ? (
             <div className={cn("font-mono tabular-nums leading-tight", pnlClass(pnl))}>
               <div>{pnl >= 0 ? "+" : ""}{formatUSD(pnl)}</div>
               <div className="text-xs opacity-80">({formatPct(pnlH)})</div>
             </div>
           ) : (
-            <span className="text-xs text-muted-foreground">{h.status}</span>
+            <span className="text-xs text-muted-foreground">{h.status === "ativa" ? "—" : h.status}</span>
           )}
         </TableCell>
         {fundId && (
@@ -105,16 +115,19 @@ export function ClientHoldingsTable({ holdings, prices, emptyMessage = "Sem posi
       continue;
     }
 
-    const totalQty = lots.reduce((s, l) => s + Number(l.quantity), 0);
-    const totalCost = lots.reduce((s, l) => s + Number(l.quantity) * Number(l.entry_price_usd), 0);
+    // Agregação só sobre lotes ATIVOS (realize_partial mantém quantity em encerrados).
+    const activeLots = lots.filter((l) => l.status === "ativa");
+    const totalQty = activeLots.reduce((s, l) => s + Number(l.quantity), 0);
+    const totalCost = activeLots.reduce((s, l) => s + Number(l.quantity) * Number(l.entry_price_usd), 0);
     const weightedAvg = totalQty > 0 ? totalCost / totalQty : 0;
     const hasPrice = prices.has(symbol);
     const cur = prices.get(symbol) ?? weightedAvg;
     const totalMarket = totalQty * cur;
     const totalPnl = totalMarket - totalCost;
     const totalPnlPct = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0;
-    const anyActive = lots.some((l) => l.status === "ativa");
+    const anyActive = activeLots.length > 0;
     const expanded = expandedGroups.has(symbol);
+    const closedCount = lots.length - activeLots.length;
 
     const renderGroupHistoryCell = () =>
       fundId ? (
@@ -147,30 +160,39 @@ export function ClientHoldingsTable({ holdings, prices, emptyMessage = "Sem posi
             <div>
               <div className="font-mono font-semibold">{symbol}</div>
               <div className="text-[11px] text-muted-foreground">
-                {lots.length} lotes
+                {activeLots.length} ativ{activeLots.length === 1 ? "o" : "os"}
+                {closedCount > 0 && ` · ${closedCount} encerrad${closedCount === 1 ? "o" : "os"}`}
               </div>
             </div>
           </div>
         </TableCell>
         <TableCell className="text-right"><CryptoQty qty={totalQty} /></TableCell>
-        <TableCell className="text-right"><Money usd={totalMarket} /></TableCell>
         <TableCell className="text-right">
-          <div className="leading-tight">
+          {hasPrice ? <Money usd={totalMarket} /> : <span className="text-muted-foreground text-xs">—</span>}
+        </TableCell>
+        <TableCell className="text-right">
+          <div className="leading-tight" title="Σ(qty_ativo × entry_price) / Σ(qty_ativo) — cost basis dos lotes que você possui agora. Lotes já vendidos não entram.">
             <Money usd={weightedAvg} />
-            <div className="text-[10px] text-muted-foreground font-normal">médio ponderado</div>
+            <div className="text-[10px] text-muted-foreground font-normal">médio (posição atual)</div>
           </div>
         </TableCell>
         <TableCell className="text-right">
-          {hasPrice ? <Money usd={cur} /> : <span className="text-muted-foreground text-xs">—</span>}
+          {hasPrice ? (
+            <Money usd={cur} />
+          ) : (
+            <span className="inline-flex items-center gap-1 text-[11px] text-amber-500" title="Sem cotação atual">
+              <AlertTriangle className="h-3 w-3" /> sem cotação
+            </span>
+          )}
         </TableCell>
         <TableCell className="text-right">
-          {anyActive ? (
+          {anyActive && hasPrice ? (
             <div className={cn("font-mono tabular-nums leading-tight", pnlClass(totalPnl))}>
               <div>{totalPnl >= 0 ? "+" : ""}{formatUSD(totalPnl)}</div>
               <div className="text-xs opacity-80">({formatPct(totalPnlPct)})</div>
             </div>
           ) : (
-            <span className="text-xs text-muted-foreground">encerrada</span>
+            <span className="text-xs text-muted-foreground">{anyActive ? "—" : "encerrada"}</span>
           )}
         </TableCell>
         {renderGroupHistoryCell()}

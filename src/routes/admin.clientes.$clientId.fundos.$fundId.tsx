@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useParams } from "@tanstack/react-router";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,8 +25,9 @@ import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/ui/money-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, ChevronLeft, ChevronRight, ChevronDown, DollarSign, Lock, Pencil, FileText, History } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, ChevronDown, DollarSign, Lock, Pencil, FileText, History, AlertTriangle } from "lucide-react";
 import { PositionHistoryDialog } from "@/components/positions/PositionHistoryDialog";
+import { fixedIncomeAccrued, isHoldingLiveOn } from "@/lib/patrimonio";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Money, CryptoQty, Pct } from "@/components/Money";
 import { toast } from "sonner";
@@ -237,18 +238,28 @@ function FundDetail() {
                             </div>
                           </TableCell>
                           <TableCell className="text-right"><CryptoQty qty={h.quantity} /></TableCell>
-                          <TableCell className="text-right"><Money usd={market} /></TableCell>
+                          <TableCell className="text-right">
+                            {hasPrice ? <Money usd={market} /> : <span className="text-muted-foreground text-xs">—</span>}
+                          </TableCell>
                           <TableCell className="text-right"><Money usd={h.entry_price_usd} /></TableCell>
                           <TableCell className="text-right">
-                            {hasPrice ? <Money usd={cur} /> : <span className="text-muted-foreground text-xs">—</span>}
+                            {hasPrice ? (
+                              <Money usd={cur} />
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[11px] text-amber-500" title="Sem cotação atual em coin_prices">
+                                <AlertTriangle className="h-3 w-3" /> sem cotação
+                              </span>
+                            )}
                           </TableCell>
                           <TableCell className="text-right">
-                            {h.status === "ativa" ? (
+                            {h.status === "ativa" && hasPrice ? (
                               <div className={cn("font-mono tabular-nums leading-tight", pnlClass(pnl))}>
                                 <div>{pnl >= 0 ? "+" : ""}{formatUSD(pnl)}</div>
                                 <div className="text-xs opacity-80">({formatPct(pnlPct)})</div>
                               </div>
-                            ) : "—"}
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
                           </TableCell>
                           <TableCell>
                             <span className={`text-xs font-mono uppercase ${h.status === "ativa" ? "text-success" : "text-muted-foreground"}`}>
@@ -285,18 +296,22 @@ function FundDetail() {
                         continue;
                       }
 
-                      // Linha agrupada
-                      const totalQty = lots.reduce((s, l) => s + Number(l.quantity), 0);
-                      const totalCost = lots.reduce((s, l) => s + Number(l.quantity) * Number(l.entry_price_usd), 0);
+                      // Linha agrupada — agregações usam APENAS lotes ativos.
+                      // realize_partial mantém holdings.quantity em lotes encerrados (não decrementa),
+                      // então somar todos os lots infla qty/cost/market/P&L. C1 fix.
+                      const activeLots = lots.filter((l) => l.status === "ativa");
+                      const totalQty = activeLots.reduce((s, l) => s + Number(l.quantity), 0);
+                      const totalCost = activeLots.reduce((s, l) => s + Number(l.quantity) * Number(l.entry_price_usd), 0);
                       const weightedAvg = totalQty > 0 ? totalCost / totalQty : 0;
                       const hasPrice = prices.has(symbol);
                       const cur = prices.get(symbol) ?? weightedAvg;
                       const totalMarket = totalQty * cur;
                       const totalPnl = totalMarket - totalCost;
                       const totalPnlPct = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0;
-                      const anyActive = lots.some((l) => l.status === "ativa");
+                      const anyActive = activeLots.length > 0;
                       const expanded = expandedGroups.has(symbol);
                       const displayName = lots[0].coin_name ?? "—";
+                      const closedCount = lots.length - activeLots.length;
 
                       rows.push(
                         <TableRow
@@ -314,29 +329,40 @@ function FundDetail() {
                               <div>
                                 <div className="font-mono font-semibold">{symbol}</div>
                                 <div className="text-[11px] text-muted-foreground">
-                                  {displayName} · {lots.length} lotes
+                                  {displayName} · {activeLots.length} ativ{activeLots.length === 1 ? "o" : "os"}
+                                  {closedCount > 0 && ` · ${closedCount} encerrad${closedCount === 1 ? "o" : "os"}`}
                                 </div>
                               </div>
                             </div>
                           </TableCell>
                           <TableCell className="text-right"><CryptoQty qty={totalQty} /></TableCell>
-                          <TableCell className="text-right"><Money usd={totalMarket} /></TableCell>
                           <TableCell className="text-right">
-                            <div className="leading-tight">
+                            {hasPrice ? <Money usd={totalMarket} /> : <span className="text-muted-foreground text-xs">—</span>}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="leading-tight" title="Σ(qty_ativo × entry_price) / Σ(qty_ativo) — cost basis dos lotes ativos. Não considera lotes encerrados.">
                               <Money usd={weightedAvg} />
-                              <div className="text-[10px] text-muted-foreground font-normal">médio ponderado</div>
+                              <div className="text-[10px] text-muted-foreground font-normal">médio (posição atual)</div>
                             </div>
                           </TableCell>
                           <TableCell className="text-right">
-                            {hasPrice ? <Money usd={cur} /> : <span className="text-muted-foreground text-xs">—</span>}
+                            {hasPrice ? (
+                              <Money usd={cur} />
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[11px] text-amber-500" title="Sem cotação atual em coin_prices">
+                                <AlertTriangle className="h-3 w-3" /> sem cotação
+                              </span>
+                            )}
                           </TableCell>
                           <TableCell className="text-right">
-                            {anyActive ? (
+                            {anyActive && hasPrice ? (
                               <div className={cn("font-mono tabular-nums leading-tight", pnlClass(totalPnl))}>
                                 <div>{totalPnl >= 0 ? "+" : ""}{formatUSD(totalPnl)}</div>
                                 <div className="text-xs opacity-80">({formatPct(totalPnlPct)})</div>
                               </div>
-                            ) : "—"}
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
                           </TableCell>
                           <TableCell>
                             <span className={`text-xs font-mono uppercase ${anyActive ? "text-success" : "text-muted-foreground"}`}>
@@ -435,72 +461,353 @@ function FundDetail() {
   );
 }
 
+// Mesmas fórmulas da edge function close-monthly-performance — calcula a prévia
+// do mês corrente em tempo real para o admin enxergar o que vai entrar no fechamento.
+// fixedIncomeAccrued importada de @/lib/patrimonio (C4).
+interface PreviewResult {
+  year: number;
+  month: number;
+  patrimonioInicio: number;
+  patrimonioFim: number;
+  alocacoes: number;
+  desalocacoes: number;
+  lucroBruto: number;
+  deficitAnterior: number;
+  baseCalculo: number;
+  taxaAplicada: number;
+  novoDeficit: number;
+}
+// fixedIncomeAccrued agora importada de @/lib/patrimonio (C4)
+
 function FundHistoryCard({ fundId }: { fundId: string }) {
   const [rows, setRows] = useState<PHRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<PreviewResult | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [fundStart, setFundStart] = useState<string | null>(null);
+  const [fundStatus, setFundStatus] = useState<string | null>(null);
+  const [fundEndDate, setFundEndDate] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     (async () => {
       setLoading(true);
-      const { data } = await supabase
+      setError(null);
+
+      // 1. Histórico já fechado
+      const { data: phData, error: phErr } = await supabase
         .from("performance_history")
         .select("*")
         .eq("fund_id", fundId)
         .order("year", { ascending: false })
         .order("month", { ascending: false });
-      setRows((data as PHRow[]) ?? []);
-      setLoading(false);
+      if (cancelled) return;
+      if (phErr) {
+        setError(phErr.message);
+        setLoading(false);
+        return;
+      }
+      setRows((phData as PHRow[]) ?? []);
+
+      // 2. Dados pra calcular prévia do mês corrente
+      try {
+        const today = new Date();
+        const year = today.getUTCFullYear();
+        const month = today.getUTCMonth() + 1; // 1..12
+        const startISO = new Date(Date.UTC(year, month - 1, 1)).toISOString().slice(0, 10);
+        const endExclusiveISO = new Date(Date.UTC(year, month, 1)).toISOString().slice(0, 10);
+        const todayISO = today.toISOString().slice(0, 10);
+
+        const prevYM = month === 1 ? { y: year - 1, m: 12 } : { y: year, m: month - 1 };
+
+        const [
+          { data: fundRow },
+          { data: holdings },
+          { data: fi },
+          { data: prices },
+          { data: prevRow },
+        ] = await Promise.all([
+          supabase
+            .from("funds")
+            .select("performance_fee_pct, carried_deficit_usd, start_date, status, end_date")
+            .eq("id", fundId)
+            .maybeSingle(),
+          supabase
+            .from("holdings")
+            .select("id, coin_symbol, quantity, entry_price_usd, purchase_date, status")
+            .eq("fund_id", fundId),
+          supabase
+            .from("fixed_income")
+            .select("id, valor_aplicado_usd, taxa_anual_pct, data_registro, data_saida, ultimo_preco_usd")
+            .eq("fund_id", fundId),
+          supabase.from("coin_prices").select("symbol, price_usd"),
+          supabase
+            .from("performance_history")
+            .select("patrimonio_fim_usd")
+            .eq("fund_id", fundId)
+            .eq("year", prevYM.y)
+            .eq("month", prevYM.m)
+            .maybeSingle(),
+        ]);
+        if (cancelled) return;
+        setFundStart((fundRow?.start_date as string | undefined) ?? null);
+        setFundStatus((fundRow?.status as string | undefined) ?? null);
+        setFundEndDate((fundRow?.end_date as string | undefined) ?? null);
+
+        const hIds = (holdings ?? []).map((h: any) => h.id);
+        let realizations: Array<{ total_usd: number; exit_date: string; holding_id: string }> = [];
+        if (hIds.length) {
+          const { data: rs } = await supabase
+            .from("realizations")
+            .select("total_usd, exit_date, holding_id")
+            .in("holding_id", hIds);
+          realizations = (rs ?? []) as typeof realizations;
+        }
+
+        const priceMap = new Map(
+          (prices ?? []).map((p: any) => [String(p.symbol).toUpperCase(), Number(p.price_usd)]),
+        );
+        const inRange = (d: string | null | undefined) => !!d && d >= startISO && d < endExclusiveISO;
+
+        // patrimônio fim (snapshot atual) — heurística "holding viva no EOM" centralizada em
+        // lib/patrimonio.ts e MIRRORED na edge function (C9).
+        let patrimonioFim = 0;
+        for (const h of holdings ?? []) {
+          if (!isHoldingLiveOn(h as any, realizations, todayISO)) continue;
+          const sym = String((h as any).coin_symbol).toUpperCase();
+          const price = priceMap.get(sym) ?? Number((h as any).entry_price_usd);
+          patrimonioFim += Number((h as any).quantity) * price;
+        }
+        for (const f of fi ?? []) {
+          const exitedBefore = (f as any).data_saida && (f as any).data_saida <= todayISO;
+          if (exitedBefore) continue;
+          const valor = Number((f as any).valor_aplicado_usd);
+          const accrued = fixedIncomeAccrued(
+            valor,
+            Number((f as any).taxa_anual_pct),
+            (f as any).data_registro,
+            todayISO,
+          );
+          patrimonioFim += valor + accrued;
+        }
+
+        const patrimonioInicio = prevRow ? Number(prevRow.patrimonio_fim_usd) : 0;
+
+        let alocacoes = 0;
+        for (const h of holdings ?? []) {
+          if (inRange((h as any).purchase_date)) {
+            alocacoes += Number((h as any).quantity) * Number((h as any).entry_price_usd);
+          }
+        }
+        for (const f of fi ?? []) {
+          if (inRange((f as any).data_registro)) alocacoes += Number((f as any).valor_aplicado_usd);
+        }
+
+        let desalocacoes = 0;
+        for (const r of realizations) {
+          if (inRange(r.exit_date)) desalocacoes += Number(r.total_usd);
+        }
+        for (const f of fi ?? []) {
+          if (inRange((f as any).data_saida)) {
+            const valor = Number((f as any).valor_aplicado_usd);
+            const accrued = fixedIncomeAccrued(
+              valor,
+              Number((f as any).taxa_anual_pct),
+              (f as any).data_registro,
+              (f as any).data_saida,
+            );
+            desalocacoes += valor + accrued;
+          }
+        }
+
+        const lucroBruto = patrimonioFim - patrimonioInicio - alocacoes + desalocacoes;
+        const deficitAnterior = Number(fundRow?.carried_deficit_usd ?? 0);
+        const baseCalculo = lucroBruto + deficitAnterior;
+        const feePct = Number(fundRow?.performance_fee_pct ?? 0);
+        let taxaAplicada = 0;
+        let novoDeficit = 0;
+        if (baseCalculo > 0) {
+          taxaAplicada = baseCalculo * (feePct / 100);
+          novoDeficit = 0;
+        } else {
+          taxaAplicada = 0;
+          novoDeficit = baseCalculo;
+        }
+
+        setPreview({
+          year,
+          month,
+          patrimonioInicio,
+          patrimonioFim,
+          alocacoes,
+          desalocacoes,
+          lucroBruto,
+          deficitAnterior,
+          baseCalculo,
+          taxaAplicada,
+          novoDeficit,
+        });
+      } catch (e: any) {
+        if (!cancelled) setPreviewError(e?.message ?? "Falha ao calcular prévia");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
+    return () => { cancelled = true; };
   }, [fundId]);
 
+  // Próximo fechamento previsto: último dia do mês corrente, processado no início do próximo
+  const nextClose = useMemo(() => {
+    const t = new Date();
+    const m = t.getUTCMonth();
+    const y = t.getUTCFullYear();
+    const lastDay = new Date(Date.UTC(y, m + 1, 0)); // último dia do mês atual
+    return formatDate(lastDay.toISOString().slice(0, 10));
+  }, []);
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Histórico mensal — visão admin (com taxas)</CardTitle>
-      </CardHeader>
-      <CardContent className="p-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Período</TableHead>
-              <TableHead className="text-right">Início</TableHead>
-              <TableHead className="text-right">Fim</TableHead>
-              <TableHead className="text-right">Aloc.</TableHead>
-              <TableHead className="text-right">Desaloc.</TableHead>
-              <TableHead className="text-right">Lucro bruto</TableHead>
-              <TableHead className="text-right">Déficit ant.</TableHead>
-              <TableHead className="text-right">Base</TableHead>
-              <TableHead className="text-right">Taxa</TableHead>
-              <TableHead className="text-right">Novo déficit</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading && <TableRow><TableCell colSpan={10} className="py-6 text-center text-muted-foreground">Carregando...</TableCell></TableRow>}
-            {!loading && rows.length === 0 && <TableRow><TableCell colSpan={10} className="py-6 text-center text-muted-foreground">Sem fechamentos.</TableCell></TableRow>}
-            {rows.map((r) => (
-              <TableRow key={r.id}>
-                <TableCell className="font-mono text-xs">{MONTHS_PT[r.month - 1]}/{r.year}</TableCell>
-                <TableCell className="text-right"><Money usd={Number(r.patrimonio_inicio_usd)} /></TableCell>
-                <TableCell className="text-right"><Money usd={Number(r.patrimonio_fim_usd)} /></TableCell>
-                <TableCell className="text-right text-xs"><Money usd={Number(r.alocacoes_usd)} /></TableCell>
-                <TableCell className="text-right text-xs"><Money usd={Number(r.desalocacoes_usd)} /></TableCell>
-                <TableCell className={`text-right font-mono ${Number(r.lucro_bruto_usd) >= 0 ? "text-success" : "text-destructive"}`}>
-                  <Money usd={Number(r.lucro_bruto_usd)} />
-                </TableCell>
-                <TableCell className="text-right text-xs text-destructive">
-                  {Number(r.deficit_anterior_usd) < 0 ? <Money usd={Number(r.deficit_anterior_usd)} /> : "—"}
-                </TableCell>
-                <TableCell className="text-right text-xs"><Money usd={Number(r.base_calculo_usd)} /></TableCell>
-                <TableCell className="text-right text-primary"><Money usd={Number(r.taxa_aplicada_usd)} /></TableCell>
-                <TableCell className="text-right text-xs">
-                  {Number(r.novo_deficit_usd) < 0 ? <span className="text-destructive"><Money usd={Number(r.novo_deficit_usd)} /></span> : "—"}
-                </TableCell>
+    <div className="space-y-4">
+      {/* Prévia do mês corrente */}
+      {fundStatus === "encerrado" && (
+        <Card className="border-muted">
+          <CardContent className="py-4 text-sm text-muted-foreground">
+            Fundo encerrado{fundEndDate ? ` em ${formatDate(fundEndDate)}` : ""}.
+            Não há mês corrente em andamento — prévia desabilitada.
+          </CardContent>
+        </Card>
+      )}
+      {preview && fundStatus !== "encerrado" && (
+        <Card className="border-primary/20">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              Prévia do mês corrente — {MONTHS_PT[preview.month - 1]}/{preview.year}
+              <span className="text-[10px] uppercase tracking-wider text-primary font-normal px-1.5 py-0.5 rounded bg-primary/10">
+                em andamento
+              </span>
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Cálculo ao vivo com mesmas fórmulas do fechamento mensal. Resultado oficial será gravado em {nextClose}.
+            </p>
+          </CardHeader>
+          <CardContent className="pt-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+              <PreviewStat label="Patrimônio início" value={preview.patrimonioInicio} />
+              <PreviewStat label="Patrimônio atual" value={preview.patrimonioFim} highlight />
+              <PreviewStat label="Aportes no mês" value={preview.alocacoes} />
+              <PreviewStat label="Desalocações no mês" value={preview.desalocacoes} />
+              <PreviewStat
+                label="Lucro bruto projetado"
+                value={preview.lucroBruto}
+                colored
+              />
+              {preview.deficitAnterior < 0 && (
+                <PreviewStat label="Déficit acumulado" value={preview.deficitAnterior} colored />
+              )}
+              <PreviewStat label="Base de cálculo" value={preview.baseCalculo} colored />
+              <PreviewStat
+                label="Taxa projetada"
+                value={preview.taxaAplicada}
+                highlight
+              />
+            </div>
+            {previewError && (
+              <p className="text-xs text-destructive mt-3">⚠ {previewError}</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Histórico mensal — fechamentos consolidados</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {error && (
+            <div className="p-4 text-sm text-destructive border-b border-destructive/20">
+              ⚠ Erro ao carregar histórico: {error}
+            </div>
+          )}
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Período</TableHead>
+                <TableHead className="text-right">Início</TableHead>
+                <TableHead className="text-right">Fim</TableHead>
+                <TableHead className="text-right">Aloc.</TableHead>
+                <TableHead className="text-right">Desaloc.</TableHead>
+                <TableHead className="text-right">Lucro bruto</TableHead>
+                <TableHead className="text-right">Déficit ant.</TableHead>
+                <TableHead className="text-right">Base</TableHead>
+                <TableHead className="text-right">Taxa</TableHead>
+                <TableHead className="text-right">Novo déficit</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+            </TableHeader>
+            <TableBody>
+              {loading && <TableRow><TableCell colSpan={10} className="py-6 text-center text-muted-foreground">Carregando...</TableCell></TableRow>}
+              {!loading && !error && rows.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={10} className="py-8 text-center text-muted-foreground">
+                    <div className="text-sm font-medium text-foreground">Nenhum fechamento mensal ainda</div>
+                    <div className="text-xs mt-1.5">
+                      Fechamentos são gerados automaticamente no fim de cada mês via cron interno.<br />
+                      {fundStart && <>Este fundo iniciou em <span className="font-mono">{formatDate(fundStart)}</span>. </>}
+                      Próximo fechamento previsto: <span className="font-mono">{nextClose}</span> (resultado disponível em alguns minutos depois).
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )}
+              {rows.map((r) => (
+                <TableRow key={r.id}>
+                  <TableCell className="font-mono text-xs">{MONTHS_PT[r.month - 1]}/{r.year}</TableCell>
+                  <TableCell className="text-right"><Money usd={Number(r.patrimonio_inicio_usd)} /></TableCell>
+                  <TableCell className="text-right"><Money usd={Number(r.patrimonio_fim_usd)} /></TableCell>
+                  <TableCell className="text-right text-xs"><Money usd={Number(r.alocacoes_usd)} /></TableCell>
+                  <TableCell className="text-right text-xs"><Money usd={Number(r.desalocacoes_usd)} /></TableCell>
+                  <TableCell className={`text-right font-mono ${Number(r.lucro_bruto_usd) >= 0 ? "text-success" : "text-destructive"}`}>
+                    <Money usd={Number(r.lucro_bruto_usd)} />
+                  </TableCell>
+                  <TableCell className="text-right text-xs text-destructive">
+                    {Number(r.deficit_anterior_usd) < 0 ? <Money usd={Number(r.deficit_anterior_usd)} /> : "—"}
+                  </TableCell>
+                  <TableCell className="text-right text-xs"><Money usd={Number(r.base_calculo_usd)} /></TableCell>
+                  <TableCell className="text-right text-primary"><Money usd={Number(r.taxa_aplicada_usd)} /></TableCell>
+                  <TableCell className="text-right text-xs">
+                    {Number(r.novo_deficit_usd) < 0 ? <span className="text-destructive"><Money usd={Number(r.novo_deficit_usd)} /></span> : "—"}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function PreviewStat({
+  label,
+  value,
+  colored,
+  highlight,
+}: {
+  label: string;
+  value: number;
+  colored?: boolean;
+  highlight?: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded border p-2",
+        highlight ? "border-primary/30 bg-primary/5" : "border-border/40",
+      )}
+    >
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">{label}</div>
+      <div className={cn("font-mono tabular-nums text-sm", colored && pnlClass(value))}>
+        <Money usd={value} />
+      </div>
+    </div>
   );
 }
 
@@ -518,13 +825,24 @@ function NewHoldingDialog({ fundId, onCreated }: { fundId: string; onCreated: ()
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // C12: guards básicos antes do round-trip.
+    const qty = Number(form.quantity);
+    const price = parseUsdInput(form.entry_price_usd);
+    if (!Number.isFinite(qty) || qty <= 0) {
+      toast.error("Quantidade deve ser maior que zero");
+      return;
+    }
+    if (!Number.isFinite(price) || price <= 0) {
+      toast.error("Preço de entrada deve ser maior que zero");
+      return;
+    }
     setSubmitting(true);
     const { error } = await supabase.from("holdings").insert({
       fund_id: fundId,
       coin_symbol: form.coin_symbol.toUpperCase(),
       coin_name: form.coin_name || null,
-      quantity: Number(form.quantity),
-      entry_price_usd: parseUsdInput(form.entry_price_usd),
+      quantity: qty,
+      entry_price_usd: price,
       purchase_date: form.purchase_date,
       notes: form.notes || null,
     });
@@ -573,6 +891,7 @@ function NewHoldingDialog({ fundId, onCreated }: { fundId: string; onCreated: ()
               <Input
                 type="number"
                 step="0.00000001"
+                min="0.00000001"
                 value={form.quantity}
                 onChange={(e) => setForm({ ...form, quantity: e.target.value })}
                 required
@@ -750,14 +1069,25 @@ function EditHoldingButton({ holding, locked, onDone }: { holding: Holding; lock
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // C12: guards básicos antes do round-trip.
+    const qty = Number(form.quantity);
+    const price = parseUsdInput(form.entry_price_usd);
+    if (!Number.isFinite(qty) || qty <= 0) {
+      toast.error("Quantidade deve ser maior que zero");
+      return;
+    }
+    if (!Number.isFinite(price) || price <= 0) {
+      toast.error("Preço de entrada deve ser maior que zero");
+      return;
+    }
     setSubmitting(true);
     const { error } = await supabase
       .from("holdings")
       .update({
         coin_symbol: form.coin_symbol.toUpperCase(),
         coin_name: form.coin_name || null,
-        quantity: Number(form.quantity),
-        entry_price_usd: parseUsdInput(form.entry_price_usd),
+        quantity: qty,
+        entry_price_usd: price,
         purchase_date: form.purchase_date,
         notes: form.notes || null,
       })
@@ -803,6 +1133,7 @@ function EditHoldingButton({ holding, locked, onDone }: { holding: Holding; lock
               <Input
                 type="number"
                 step="0.00000001"
+                min="0.00000001"
                 value={form.quantity}
                 onChange={(e) => setForm({ ...form, quantity: e.target.value })}
                 required

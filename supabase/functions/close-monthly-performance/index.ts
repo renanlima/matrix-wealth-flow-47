@@ -47,6 +47,8 @@ function inRange(d: string | null | undefined, startISO: string, endExclusiveISO
   return d >= startISO && d < endExclusiveISO;
 }
 
+// MIRRORED FROM src/lib/patrimonio.ts — alterar nos dois lugares quando mudar.
+// Deno edge functions não compartilham módulos com src/.
 function fixedIncomeAccrued(
   valor: number,
   taxaAnualPct: number,
@@ -58,6 +60,22 @@ function fixedIncomeAccrued(
   const days = Math.max(0, (ref - start) / (24 * 3600 * 1000));
   const rendimentoPct = taxaAnualPct * (days / 365);
   return valor * (rendimentoPct / 100);
+}
+
+// MIRRORED FROM src/lib/patrimonio.ts — isHoldingLiveOn.
+// Critério unificado: holding está vivo numa data se não tem realização de fechamento
+// até essa data E sua quantidade atual > 0.
+function isHoldingLiveOn(
+  holding: { id: string; status?: string; quantity: number | string },
+  realizations: Array<{ holding_id: string; exit_date: string }>,
+  refDateISO: string,
+): boolean {
+  const upToRef = realizations.filter(
+    (r) => r.holding_id === holding.id && r.exit_date <= refDateISO,
+  );
+  if (holding.status === "encerrada" && upToRef.length > 0) return false;
+  if (holding.status === "encerrada") return false;
+  return Number(holding.quantity) > 0;
 }
 
 Deno.serve(async (req) => {
@@ -81,7 +99,20 @@ Deno.serve(async (req) => {
       return { status: "failed", message: fErr.message };
     }
 
-  // Tabela de preços (snapshot atual)
+  // Tabela de preços (snapshot ATUAL — não histórico).
+  //
+  // ⚠ LIMITAÇÃO CONHECIDA (C8 deferido):
+  // patrimonio_fim deveria ser calculado com cotações do ÚLTIMO DIA do mês de referência,
+  // mas hoje usamos o snapshot do momento da execução do cron. Para ativos voláteis
+  // (BTC, ETH, etc.) isso falseia o lucro_bruto em fechamentos retroativos.
+  //
+  // Fix proposto (requer migration de schema, ainda não aplicado):
+  //   CREATE TABLE coin_prices_history(symbol text, date date, price_usd numeric, PRIMARY KEY(symbol, date));
+  //   Popular via cron diário (update-coin-prices grava ?? endOfDay row);
+  //   Aqui: SELECT price_usd FROM coin_prices_history WHERE date <= endLastDay ORDER BY date DESC LIMIT 1 per symbol.
+  //
+  // Enquanto o fix não rolar, fechamentos do mês corrente são fiéis; fechamentos retroativos
+  // (cron --year --month explícitos) podem divergir do valor real do fim daquele mês.
   const { data: pricesData } = await admin.from("coin_prices").select("symbol, price_usd");
   const priceMap = new Map(
     (pricesData ?? []).map((p) => [String(p.symbol).toUpperCase(), Number(p.price_usd)]),
@@ -128,15 +159,12 @@ Deno.serve(async (req) => {
       )
       .eq("fund_id", fund.id);
 
-    // patrimonio_fim
+    // patrimonio_fim — heurística "holding viva no EOM" centralizada via isHoldingLiveOn
+    // (espelhada de src/lib/patrimonio.ts). Mesmo critério usado por FundHistoryCard preview,
+    // PositionHistoryDialog e extrato — sem mais divergência. C9.
     let patrimonioFim = 0;
     for (const h of holdings ?? []) {
-      // Considerar holding "viva" no fim do mês: status ativa OU encerrada após endLastDay
-      // Como não temos data de encerramento direta, aproximamos: se realização existir e exit_date <= endLastDay, exclui.
-      const realizedBefore = realizations.find(
-        (r) => (r as any).holding_id === h.id && r.exit_date <= endLastDayISO,
-      );
-      if (h.status === "encerrada" && realizedBefore) continue;
+      if (!isHoldingLiveOn(h, realizations as any, endLastDayISO)) continue;
       const sym = String(h.coin_symbol).toUpperCase();
       const price = priceMap.get(sym) ?? Number(h.entry_price_usd);
       patrimonioFim += Number(h.quantity) * price;

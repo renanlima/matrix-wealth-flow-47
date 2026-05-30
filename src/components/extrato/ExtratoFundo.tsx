@@ -536,7 +536,8 @@ function TypeBadge({ ev }: { ev: ExtratoEvent }) {
       case "Venda": return (ev.profit ?? 0) >= 0 ? "text-success" : "text-destructive";
       case "Rendimento": return "text-success";
       case "Encerramento": return (ev.profit ?? 0) >= 0 ? "text-success" : "text-destructive";
-      case "Taxa": return "text-destructive";
+      // Taxa zerada (fechamento sem cobrança) usa cor neutra; cobrada usa vermelha. C10.
+      case "Taxa": return ev.valueUsd < 0 ? "text-destructive" : "text-muted-foreground";
       case "Aporte": return "text-success";
       case "Retirada": return "text-orange-700";
       case "Início do fundo": return "text-primary";

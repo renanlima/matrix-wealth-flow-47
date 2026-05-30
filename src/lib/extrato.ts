@@ -1,5 +1,15 @@
 // Pure helper: builds a chronological ledger of fund movements
 // from raw rows of holdings, realizations, fixed_income, performance_history.
+//
+// Fórmulas de patrimônio (originalQty, accrual de fixed_income, etc.) vivem em
+// lib/patrimonio.ts. Manter sincronizado com supabase/functions/close-monthly-performance.
+
+import {
+  closingRealizationMap,
+  fixedIncomeAccrued,
+  originalQtyOf,
+  soldByHoldingMap,
+} from "./patrimonio";
 
 export type ExtratoEventType =
   | "Compra"
@@ -79,6 +89,7 @@ interface FixedIncomeRow {
   product_name: string;
   asset_symbol: string | null;
   valor_aplicado_usd: number | string;
+  taxa_anual_pct: number | string;
   ultimo_preco_usd: number | string | null;
   data_registro: string;
   data_saida: string | null;
@@ -120,6 +131,7 @@ function eom(year: number, month: number) {
   const d = new Date(Date.UTC(year, month, 0));
   return d.toISOString().slice(0, 10);
 }
+// fixedIncomeAccrued agora importado de lib/patrimonio.ts (C4)
 
 export function buildExtratoEvents(input: {
   holdings: HoldingRow[];
@@ -134,40 +146,15 @@ export function buildExtratoEvents(input: {
   const holdingById = new Map(input.holdings.map((h) => [h.id, h]));
   const events: ExtratoEvent[] = [];
 
-  // Agrega vendas por holding para reconstruir quantidade original e detectar a venda de fechamento.
-  // O schema atual decrementa holdings.quantity em vendas parciais (RPC realize_partial), então a
-  // quantity persistida NÃO é a quantidade original comprada. Sem isso, a "Compra" no extrato
-  // muda de valor toda vez que há venda parcial.
-  const soldByHolding = new Map<string, number>();
-  const closingRealizationId = new Map<string, string>();
-  for (const r of input.realizations) {
-    soldByHolding.set(r.holding_id, (soldByHolding.get(r.holding_id) ?? 0) + Number(r.quantity));
-  }
-  for (const h of input.holdings) {
-    if (h.status !== "encerrada") continue;
-    const rs = input.realizations.filter((r) => r.holding_id === h.id);
-    if (rs.length === 0) continue;
-    // Última por exit_date (id como desempate estável)
-    const latest = rs.reduce((a, b) =>
-      a.exit_date > b.exit_date ? a : a.exit_date < b.exit_date ? b : (a.id > b.id ? a : b)
-    );
-    closingRealizationId.set(h.id, latest.id);
-  }
-
-  const originalQtyOf = (h: HoldingRow) => {
-    const current = Number(h.quantity);
-    const sold = soldByHolding.get(h.id) ?? 0;
-    if (h.status === "encerrada") {
-      // Em holdings encerrados, holdings.quantity guarda o resíduo da ÚLTIMA venda (não foi decrementado).
-      // A quantidade original = soma de todas as vendas. Fallback para current se não houver vendas.
-      return sold > 0 ? sold : current;
-    }
-    return current + sold;
-  };
+  // C4: helpers consumidos de lib/patrimonio.ts (compartilhados com PositionHistoryDialog,
+  // FundHistoryCard preview, etc.). O builder repassa as estruturas — fórmulas vivem num
+  // lugar só.
+  const soldByHolding = soldByHoldingMap(input.realizations);
+  const closingRealizationId = closingRealizationMap(input.holdings, input.realizations);
 
   // Compras (quantidade original, não a residual)
   for (const h of input.holdings) {
-    const originalQty = originalQtyOf(h);
+    const originalQty = originalQtyOf(h, soldByHolding);
     const price = Number(h.entry_price_usd);
     const value = -(originalQty * price);
     events.push({
@@ -221,7 +208,17 @@ export function buildExtratoEvents(input: {
       notes: f.notes ?? null,
     });
     if (f.data_saida) {
-      const fim = Number(f.ultimo_preco_usd ?? f.valor_aplicado_usd);
+      // C2: valor de encerramento = principal + accrual taxa anual × dias.
+      // Mesma regra da edge function close-monthly-performance (ignora ultimo_preco_usd
+      // por briefing — mantém consistência com cálculo oficial de patrimônio mesmo se
+      // admin marcou um preço de mercado divergente do rendimento contratual).
+      const accrued = fixedIncomeAccrued(
+        aplicado,
+        Number(f.taxa_anual_pct ?? 0),
+        f.data_registro,
+        f.data_saida,
+      );
+      const fim = aplicado + accrued;
       const yieldAmount = fim - aplicado;
       const yieldLabel =
         yieldAmount > 0
@@ -238,24 +235,39 @@ export function buildExtratoEvents(input: {
         symbol: sym,
         valueUsd: fim,
         profit: yieldAmount,
+        notes: f.notes ?? null,
       });
     }
   }
 
-  // Taxas (performance_history) — eom do mês de referência
+  // Taxas (performance_history) — eom do mês de referência.
+  // C10: mesmo quando taxa=0, emitir evento "Fechamento mensal — sem taxa devida" pra
+  // transparência (antes filtrava fora silenciosamente). valueUsd=0 não afeta saldo.
   for (const t of input.fees) {
     const taxa = Number(t.taxa_aplicada_usd);
-    if (taxa <= 0) continue;
     const base = Number(t.base_calculo_usd);
-    events.push({
-      id: `fee-${t.id}`,
-      date: eom(t.year, t.month),
-      type: "Taxa",
-      description: `Taxa de performance — ${MONTHS_PT[t.month - 1]}/${t.year} (sobre ${fmtUsd(base)})`,
-      quantity: null,
-      symbol: null,
-      valueUsd: -taxa,
-    });
+    const periodLabel = `${MONTHS_PT[t.month - 1]}/${t.year}`;
+    if (taxa > 0) {
+      events.push({
+        id: `fee-${t.id}`,
+        date: eom(t.year, t.month),
+        type: "Taxa",
+        description: `Taxa de performance — ${periodLabel} (sobre ${fmtUsd(base)})`,
+        quantity: null,
+        symbol: null,
+        valueUsd: -taxa,
+      });
+    } else {
+      events.push({
+        id: `fee-zero-${t.id}`,
+        date: eom(t.year, t.month),
+        type: "Taxa",
+        description: `Fechamento mensal — ${periodLabel} sem taxa devida (base ${fmtUsd(base)})`,
+        quantity: null,
+        symbol: null,
+        valueUsd: 0,
+      });
+    }
   }
 
   // Aportes (deposits alocados a este fundo)

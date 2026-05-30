@@ -8,6 +8,7 @@ import { formatDate, formatUSD, formatPct, pnlClass } from "@/lib/format";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { ArrowDownCircle, ArrowUpCircle } from "lucide-react";
+import { originalQtyOf, soldByHoldingMap } from "@/lib/patrimonio";
 
 interface Props {
   open: boolean;
@@ -85,19 +86,11 @@ export function PositionHistoryDialog({ open, onOpenChange, fundId, coinSymbol, 
   // Mapa rápido holding_id → holding
   const holdingById = useMemo(() => new Map(holdings.map((h) => [h.id, h])), [holdings]);
 
-  // Quantidades originais por holding (mesma lógica do extrato)
+  // C4: helpers compartilhados de lib/patrimonio
   const originalQtyByHolding = useMemo(() => {
-    const soldBy = new Map<string, number>();
-    for (const r of realizations) {
-      soldBy.set(r.holding_id, (soldBy.get(r.holding_id) ?? 0) + Number(r.quantity));
-    }
+    const soldBy = soldByHoldingMap(realizations);
     const out = new Map<string, number>();
-    for (const h of holdings) {
-      const current = Number(h.quantity);
-      const sold = soldBy.get(h.id) ?? 0;
-      const orig = h.status === "encerrada" ? (sold > 0 ? sold : current) : current + sold;
-      out.set(h.id, orig);
-    }
+    for (const h of holdings) out.set(h.id, originalQtyOf(h, soldBy));
     return out;
   }, [holdings, realizations]);
 
@@ -376,8 +369,8 @@ export function PositionHistoryDialog({ open, onOpenChange, fundId, coinSymbol, 
                               <TableRow key={r.id}>
                                 <TableCell className="font-mono text-xs whitespace-nowrap">{formatDate(r.exit_date)}</TableCell>
                                 <TableCell className="text-right font-mono text-xs"><CryptoQty qty={qty} /></TableCell>
-                                <TableCell className="text-right font-mono text-xs"><Money usd={r.exit_price_usd} /></TableCell>
-                                <TableCell className="text-right font-mono text-xs"><Money usd={r.total_usd} /></TableCell>
+                                <TableCell className="text-right font-mono text-xs"><Money usd={Number(r.exit_price_usd)} /></TableCell>
+                                <TableCell className="text-right font-mono text-xs"><Money usd={Number(r.total_usd)} /></TableCell>
                                 <TableCell className={cn("text-right font-mono text-xs", pnlClass(profit))}>
                                   {profit >= 0 ? "+" : ""}{formatUSD(profit)}
                                 </TableCell>
