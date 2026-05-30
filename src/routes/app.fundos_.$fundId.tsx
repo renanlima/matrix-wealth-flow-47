@@ -159,7 +159,7 @@ function ClientFundDetail() {
           </label>
         </CardHeader>
         <CardContent className="p-0">
-          <ClientHoldingsTable holdings={visibleHoldings} prices={prices} />
+          <ClientHoldingsTable holdings={visibleHoldings} prices={prices} fundId={fundId} />
         </CardContent>
       </Card>
 

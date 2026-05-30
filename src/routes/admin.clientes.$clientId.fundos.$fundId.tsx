@@ -25,7 +25,8 @@ import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/ui/money-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, ChevronLeft, ChevronRight, ChevronDown, DollarSign, Lock, Pencil, FileText } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, ChevronDown, DollarSign, Lock, Pencil, FileText, History } from "lucide-react";
+import { PositionHistoryDialog } from "@/components/positions/PositionHistoryDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Money, CryptoQty, Pct } from "@/components/Money";
 import { toast } from "sonner";
@@ -79,6 +80,7 @@ function FundDetail() {
   const [realizations, setRealizations] = useState<Realization[]>([]);
   const [prices, setPrices] = useState<Map<string, number>>(new Map());
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [historySymbol, setHistorySymbol] = useState<string | null>(null);
 
   const toggleGroup = (symbol: string) => {
     setExpandedGroups((prev) => {
@@ -255,6 +257,15 @@ function FundDetail() {
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex gap-1 justify-end">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                aria-label="Histórico"
+                                title="Histórico"
+                                onClick={(e) => { e.stopPropagation(); setHistorySymbol(h.coin_symbol.toUpperCase()); }}
+                              >
+                                <History className="h-3.5 w-3.5" />
+                              </Button>
                               {h.status === "ativa" && (
                                 <EditHoldingButton holding={h} locked={locked} onDone={load} />
                               )}
@@ -333,9 +344,20 @@ function FundDetail() {
                             </span>
                           </TableCell>
                           <TableCell className="text-right">
-                            <span className="text-[10px] text-muted-foreground">
-                              {expanded ? "ocultar lotes" : "ver lotes"}
-                            </span>
+                            <div className="flex gap-1 justify-end items-center">
+                              <span className="text-[10px] text-muted-foreground mr-1">
+                                {expanded ? "ocultar lotes" : "ver lotes"}
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                aria-label="Histórico"
+                                title="Histórico"
+                                onClick={(e) => { e.stopPropagation(); setHistorySymbol(symbol); }}
+                              >
+                                <History className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       );
@@ -401,6 +423,14 @@ function FundDetail() {
           <FundHistoryCard fundId={fundId} />
         </TabsContent>
       </Tabs>
+
+      <PositionHistoryDialog
+        open={historySymbol !== null}
+        onOpenChange={(o) => { if (!o) setHistorySymbol(null); }}
+        fundId={fundId}
+        coinSymbol={historySymbol ?? ""}
+        isAdmin
+      />
     </div>
   );
 }

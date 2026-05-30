@@ -128,7 +128,7 @@ function ClientFunds() {
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <ClientHoldingsTable holdings={fundHoldings} prices={prices} />
+              <ClientHoldingsTable holdings={fundHoldings} prices={prices} fundId={f.id} />
             </CardContent>
           </Card>
         );

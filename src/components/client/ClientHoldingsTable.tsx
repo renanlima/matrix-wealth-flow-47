@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Money, CryptoQty } from "@/components/Money";
+import { Button } from "@/components/ui/button";
 import { formatUSD, formatPct, pnlClass, formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { ChevronRight, ChevronDown } from "lucide-react";
+import { ChevronRight, ChevronDown, History } from "lucide-react";
+import { PositionHistoryDialog } from "@/components/positions/PositionHistoryDialog";
 
 export interface ClientHoldingRow {
   id: string;
@@ -19,10 +21,13 @@ interface Props {
   holdings: ClientHoldingRow[];
   prices: Map<string, number>;
   emptyMessage?: string;
+  /** ID do fundo para abrir o dialog de histórico. Se ausente, o botão histórico não aparece. */
+  fundId?: string;
 }
 
-export function ClientHoldingsTable({ holdings, prices, emptyMessage = "Sem posições." }: Props) {
+export function ClientHoldingsTable({ holdings, prices, emptyMessage = "Sem posições.", fundId }: Props) {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [historySymbol, setHistorySymbol] = useState<string | null>(null);
 
   const toggleGroup = (symbol: string) => {
     setExpandedGroups((prev) => {
@@ -76,6 +81,19 @@ export function ClientHoldingsTable({ holdings, prices, emptyMessage = "Sem posi
             <span className="text-xs text-muted-foreground">{h.status}</span>
           )}
         </TableCell>
+        {fundId && (
+          <TableCell className="text-right">
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Histórico"
+              title="Histórico"
+              onClick={(e) => { e.stopPropagation(); setHistorySymbol(sym); }}
+            >
+              <History className="h-3.5 w-3.5" />
+            </Button>
+          </TableCell>
+        )}
       </TableRow>
     );
   };
@@ -97,6 +115,21 @@ export function ClientHoldingsTable({ holdings, prices, emptyMessage = "Sem posi
     const totalPnlPct = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0;
     const anyActive = lots.some((l) => l.status === "ativa");
     const expanded = expandedGroups.has(symbol);
+
+    const renderGroupHistoryCell = () =>
+      fundId ? (
+        <TableCell className="text-right">
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Histórico"
+            title="Histórico"
+            onClick={(e) => { e.stopPropagation(); setHistorySymbol(symbol); }}
+          >
+            <History className="h-3.5 w-3.5" />
+          </Button>
+        </TableCell>
+      ) : null;
 
     rows.push(
       <TableRow
@@ -140,6 +173,7 @@ export function ClientHoldingsTable({ holdings, prices, emptyMessage = "Sem posi
             <span className="text-xs text-muted-foreground">encerrada</span>
           )}
         </TableCell>
+        {renderGroupHistoryCell()}
       </TableRow>
     );
 
@@ -148,28 +182,40 @@ export function ClientHoldingsTable({ holdings, prices, emptyMessage = "Sem posi
     }
   }
 
+  const colCount = fundId ? 7 : 6;
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Moeda</TableHead>
-          <TableHead className="text-right">Qtd</TableHead>
-          <TableHead className="text-right">Valor Total (USD)</TableHead>
-          <TableHead className="text-right">Preço Individual</TableHead>
-          <TableHead className="text-right">Preço atual</TableHead>
-          <TableHead className="text-right">P&L</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {holdings.length === 0 && (
+    <>
+      <Table>
+        <TableHeader>
           <TableRow>
-            <TableCell colSpan={6} className="text-center py-6 text-muted-foreground text-sm">
-              {emptyMessage}
-            </TableCell>
+            <TableHead>Moeda</TableHead>
+            <TableHead className="text-right">Qtd</TableHead>
+            <TableHead className="text-right">Valor Total (USD)</TableHead>
+            <TableHead className="text-right">Preço Individual</TableHead>
+            <TableHead className="text-right">Preço atual</TableHead>
+            <TableHead className="text-right">P&L</TableHead>
+            {fundId && <TableHead className="text-right"></TableHead>}
           </TableRow>
-        )}
-        {rows}
-      </TableBody>
-    </Table>
+        </TableHeader>
+        <TableBody>
+          {holdings.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={colCount} className="text-center py-6 text-muted-foreground text-sm">
+                {emptyMessage}
+              </TableCell>
+            </TableRow>
+          )}
+          {rows}
+        </TableBody>
+      </Table>
+      {fundId && (
+        <PositionHistoryDialog
+          open={historySymbol !== null}
+          onOpenChange={(o) => { if (!o) setHistorySymbol(null); }}
+          fundId={fundId}
+          coinSymbol={historySymbol ?? ""}
+        />
+      )}
+    </>
   );
 }
