@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -7,14 +7,26 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Money } from "@/components/Money";
-import { Download, Info, Search } from "lucide-react";
+import { ChevronDown, ChevronRight, Download, FileSpreadsheet, Info, Search } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { formatDate, formatUSD, pnlClass } from "@/lib/format";
+import { formatDate, formatUSD, monthNamesPT, pnlClass } from "@/lib/format";
 import { generatePdfFromElement } from "@/lib/pdf";
 import { buildExtratoEvents, type ExtratoEvent, type ExtratoEventType } from "@/lib/extrato";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
-const ALL_TYPES: ExtratoEventType[] = ["Compra", "Venda", "Rendimento", "Encerramento", "Taxa", "Aporte", "Retirada"];
+const ALL_TYPES: ExtratoEventType[] = [
+  "Compra",
+  "Venda",
+  "Rendimento",
+  "Encerramento",
+  "Taxa",
+  "Aporte",
+  "Retirada",
+  "Edição",
+  "Início do fundo",
+  "Encerramento do fundo",
+];
 const PAGE_SIZE = 100;
 
 interface Props {
@@ -24,6 +36,7 @@ interface Props {
 }
 
 export function ExtratoFundo({ fundId, fundName, clientName }: Props) {
+  const { currency } = useCurrency();
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<ExtratoEvent[]>([]);
   const [cashFetchFailed, setCashFetchFailed] = useState(false);
@@ -33,17 +46,28 @@ export function ExtratoFundo({ fundId, fundName, clientName }: Props) {
   const [search, setSearch] = useState("");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [generating, setGenerating] = useState(false);
+  const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set());
   const snapshotRef = useRef<HTMLDivElement>(null);
+
+  const toggleMonth = (m: string) => {
+    setCollapsedMonths((prev) => {
+      const next = new Set(prev);
+      if (next.has(m)) next.delete(m);
+      else next.add(m);
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (!fundId) { setLoading(false); setEvents([]); return; }
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const [{ data: h }, { data: fi }, { data: ph }] = await Promise.all([
+      const [{ data: h }, { data: fi }, { data: ph }, { data: fundRow }] = await Promise.all([
         supabase.from("holdings").select("*").eq("fund_id", fundId),
         supabase.from("fixed_income").select("*").eq("fund_id", fundId),
         supabase.from("performance_history").select("*").eq("fund_id", fundId),
+        supabase.from("funds").select("id, name, start_date, end_date, status").eq("id", fundId).maybeSingle(),
       ]);
       const holdings = h ?? [];
       const ids = holdings.map((x: any) => x.id);
@@ -51,6 +75,19 @@ export function ExtratoFundo({ fundId, fundName, clientName }: Props) {
       if (ids.length) {
         const { data: r } = await supabase.from("realizations").select("*").in("holding_id", ids);
         realizations = r ?? [];
+      }
+
+      // audit_log: RLS só permite leitura para admin. Cliente recebe array vazio sem erro.
+      let audit: any[] = [];
+      if (ids.length) {
+        const { data: au } = await supabase
+          .from("audit_log")
+          .select("id, action, entity_type, entity_id, actor_email, before, after, created_at")
+          .eq("entity_type", "holdings")
+          .in("entity_id", ids)
+          .in("action", ["UPDATE", "DELETE"])
+          .order("created_at", { ascending: false });
+        audit = au ?? [];
       }
 
       // Aportes/Retiradas alocados a este fundo (pode falhar se RLS/coluna não estiver pronta)
@@ -82,6 +119,8 @@ export function ExtratoFundo({ fundId, fundName, clientName }: Props) {
         fees: (ph ?? []) as any,
         deposits: deposits as any,
         withdrawals: withdrawals as any,
+        fund: fundRow as any,
+        audit: audit as any,
       });
       setEvents(ev);
       setCashFetchFailed(cashFailed);
@@ -105,23 +144,27 @@ export function ExtratoFundo({ fundId, fundName, clientName }: Props) {
   }, [events, selectedTypes, dateFrom, dateTo, search]);
 
   const summary = useMemo(() => {
-    let bought = 0, sold = 0, realizedPnl = 0, yields = 0, fees = 0, deposits = 0, withdrawals = 0;
+    let bought = 0, sold = 0, realizedPnl = 0, yieldsFlow = 0, fees = 0, deposits = 0, withdrawals = 0;
+    let net = 0;
     for (const e of filtered) {
+      // valueUsd já está assinado (entrada positiva, saída negativa) — net é a soma direta.
+      net += e.valueUsd;
       switch (e.type) {
         case "Compra": bought += -e.valueUsd; break;
         case "Venda":
           sold += e.valueUsd;
           if (typeof e.profit === "number") realizedPnl += e.profit;
           break;
-        case "Rendimento": yields += -e.valueUsd; break;
-        case "Encerramento": yields -= e.valueUsd; break; // saída de aplicação volta como crédito
+        // Fluxo de aplicações = encerramentos (entrada) + aplicações (saída).
+        // Positivo = recuperado mais do que aplicado no período. Negativo = ainda alocado.
+        case "Rendimento": yieldsFlow += e.valueUsd; break;
+        case "Encerramento": yieldsFlow += e.valueUsd; break;
         case "Taxa": fees += -e.valueUsd; break;
         case "Aporte": deposits += e.valueUsd; break;
         case "Retirada": withdrawals += -e.valueUsd; break;
       }
     }
-    const net = sold - bought - fees + deposits - withdrawals;
-    return { bought, sold, realizedPnl, yields, fees, deposits, withdrawals, net };
+    return { bought, sold, realizedPnl, yieldsFlow, fees, deposits, withdrawals, net };
   }, [filtered]);
 
   const toggleType = (t: ExtratoEventType) => {
@@ -133,6 +176,52 @@ export function ExtratoFundo({ fundId, fundName, clientName }: Props) {
   };
 
   const visible = filtered.slice(0, visibleCount);
+
+  // Agrupa eventos visíveis por mês preservando a ordem DESC.
+  // endBalance = saldo APÓS o evento mais recente do mês (primeiro elemento, pois é DESC).
+  const visibleByMonth = useMemo(() => {
+    const groups: { month: string; events: ExtratoEvent[]; netValue: number; endBalance: number | null }[] = [];
+    let cur: (typeof groups)[number] | null = null;
+    for (const e of visible) {
+      const month = e.date.slice(0, 7); // YYYY-MM
+      if (!cur || cur.month !== month) {
+        cur = { month, events: [], netValue: 0, endBalance: e.runningBalance ?? null };
+        groups.push(cur);
+      }
+      cur.events.push(e);
+      cur.netValue += e.valueUsd;
+    }
+    return groups;
+  }, [visible]);
+
+  const handleExportCsv = () => {
+    if (filtered.length === 0) return;
+    const headers = ["Data", "Tipo", "Símbolo", "Quantidade", "Descrição", "Valor (USD)", "Saldo (USD)", "Lucro/Prejuízo (USD)", "Observações"];
+    const escape = (s: string) => `"${(s ?? "").replace(/"/g, '""')}"`;
+    const rows = filtered.map((e) =>
+      [
+        e.date,
+        e.type,
+        e.symbol ?? "",
+        e.quantity != null ? String(e.quantity) : "",
+        e.description,
+        e.valueUsd === 0 ? "" : e.valueUsd.toFixed(2),
+        e.runningBalance != null ? e.runningBalance.toFixed(2) : "",
+        e.profit != null ? e.profit.toFixed(2) : "",
+        e.notes ?? "",
+      ].map(escape).join(",")
+    );
+    const csv = [headers.map(escape).join(","), ...rows].join("\n");
+    // BOM para Excel reconhecer UTF-8 corretamente
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Extrato_${fundName.replace(/\s+/g, "_")}_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("CSV exportado");
+  };
 
   const handleExport = async () => {
     if (!snapshotRef.current) return;
@@ -155,10 +244,19 @@ export function ExtratoFundo({ fundId, fundName, clientName }: Props) {
             Livro-razão de todas as movimentações do fundo.
           </p>
         </div>
-        <Button onClick={handleExport} disabled={generating || filtered.length === 0}>
-          <Download className="h-4 w-4 mr-1" />
-          {generating ? "Gerando..." : "Exportar PDF"}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={handleExportCsv}
+            disabled={filtered.length === 0}
+          >
+            <FileSpreadsheet className="h-4 w-4 mr-1" /> Exportar CSV
+          </Button>
+          <Button onClick={handleExport} disabled={generating || filtered.length === 0}>
+            <Download className="h-4 w-4 mr-1" />
+            {generating ? "Gerando..." : "Exportar PDF"}
+          </Button>
+        </div>
       </div>
 
       {/* Cards-resumo */}
@@ -173,7 +271,11 @@ export function ExtratoFundo({ fundId, fundName, clientName }: Props) {
             </span>
           }
         />
-        <SummaryCard label="Rendimentos (saldo)" value={<Money usd={summary.yields} className="text-lg" />} />
+        <SummaryCard
+          label="Fluxo de aplicações"
+          value={<Money usd={summary.yieldsFlow} className={cn("text-lg", pnlClass(summary.yieldsFlow))} />}
+          sub={<span className="text-[10px] text-muted-foreground">(+) recuperado · (−) alocado líquido</span>}
+        />
         <SummaryCard
           label="Net do período"
           value={<Money usd={summary.net} className={cn("text-lg", pnlClass(summary.net))} />}
@@ -247,19 +349,35 @@ export function ExtratoFundo({ fundId, fundName, clientName }: Props) {
                 <TableHead>Tipo</TableHead>
                 <TableHead>Descrição</TableHead>
                 <TableHead className="text-right">Quantidade</TableHead>
-                <TableHead className="text-right">Valor (USD)</TableHead>
+                <TableHead className="text-right">Valor ({currency})</TableHead>
+                <TableHead className="text-right">Saldo de caixa</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading && (
-                <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Carregando...</TableCell></TableRow>
               )}
               {!loading && filtered.length === 0 && (
-                <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                   Nenhuma movimentação registrada neste fundo.
                 </TableCell></TableRow>
               )}
-              {visible.map((e) => <ExtratoRow key={e.id} ev={e} />)}
+              {visibleByMonth.map((g) => {
+                const collapsed = collapsedMonths.has(g.month);
+                return (
+                  <Fragment key={g.month}>
+                    <MonthDividerRow
+                      month={g.month}
+                      count={g.events.length}
+                      netValue={g.netValue}
+                      endBalance={g.endBalance}
+                      collapsed={collapsed}
+                      onToggle={() => toggleMonth(g.month)}
+                    />
+                    {!collapsed && g.events.map((e) => <ExtratoRow key={e.id} ev={e} />)}
+                  </Fragment>
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>
@@ -292,7 +410,8 @@ export function ExtratoFundo({ fundId, fundName, clientName }: Props) {
                 <th className="text-left py-1.5 pr-2">Tipo</th>
                 <th className="text-left py-1.5 pr-2">Descrição</th>
                 <th className="text-right py-1.5 pr-2">Qtd</th>
-                <th className="text-right py-1.5">Valor (USD)</th>
+                <th className="text-right py-1.5 pr-2">Valor (USD)</th>
+                <th className="text-right py-1.5">Saldo (USD)</th>
               </tr>
             </thead>
             <tbody>
@@ -300,12 +419,20 @@ export function ExtratoFundo({ fundId, fundName, clientName }: Props) {
                 <tr key={e.id} className="border-b border-border/40">
                   <td className="py-1.5 pr-2 font-mono">{formatDate(e.date)}</td>
                   <td className="py-1.5 pr-2">{e.type}</td>
-                  <td className="py-1.5 pr-2">{e.description}</td>
+                  <td className="py-1.5 pr-2">
+                    {e.description}
+                    {e.notes && (
+                      <div className="text-[10px] italic text-muted-foreground mt-0.5">“{e.notes}”</div>
+                    )}
+                  </td>
                   <td className="py-1.5 pr-2 text-right font-mono">
                     {e.quantity != null ? `${e.quantity} ${e.symbol ?? ""}` : ""}
                   </td>
+                  <td className="py-1.5 pr-2 text-right font-mono">
+                    {e.valueUsd === 0 ? "—" : `${e.valueUsd >= 0 ? "+" : ""}${formatUSD(e.valueUsd)}`}
+                  </td>
                   <td className="py-1.5 text-right font-mono">
-                    {e.valueUsd >= 0 ? "+" : ""}{formatUSD(e.valueUsd)}
+                    {e.runningBalance != null ? formatUSD(e.runningBalance) : "—"}
                   </td>
                 </tr>
               ))}
@@ -318,21 +445,85 @@ export function ExtratoFundo({ fundId, fundName, clientName }: Props) {
 }
 
 function ExtratoRow({ ev }: { ev: ExtratoEvent }) {
+  const isInfo = ev.valueUsd === 0;
   return (
     <TableRow>
-      <TableCell className="font-mono text-xs whitespace-nowrap">{formatDate(ev.date)}</TableCell>
-      <TableCell><TypeBadge ev={ev} /></TableCell>
-      <TableCell className="text-sm">{ev.description}</TableCell>
-      <TableCell className="text-right font-mono text-xs">
+      <TableCell className="font-mono text-xs whitespace-nowrap align-top">{formatDate(ev.date)}</TableCell>
+      <TableCell className="align-top"><TypeBadge ev={ev} /></TableCell>
+      <TableCell className="text-sm align-top">
+        <div>{ev.description}</div>
+        {ev.notes && (
+          <div className="text-[11px] italic text-muted-foreground mt-0.5 whitespace-pre-wrap">
+            “{ev.notes}”
+          </div>
+        )}
+      </TableCell>
+      <TableCell className="text-right font-mono text-xs align-top">
         {ev.quantity != null ? (
           <span>{ev.quantity} <span className="text-muted-foreground">{ev.symbol}</span></span>
         ) : <span className="text-muted-foreground">—</span>}
       </TableCell>
       <TableCell className={cn(
-        "text-right font-mono tabular-nums",
-        ev.valueUsd >= 0 ? "text-success" : "text-destructive",
+        "text-right font-mono tabular-nums align-top",
+        isInfo ? "text-muted-foreground" : ev.valueUsd >= 0 ? "text-success" : "text-destructive",
       )}>
-        {ev.valueUsd >= 0 ? "+" : ""}{formatUSD(ev.valueUsd)}
+        {isInfo ? "—" : `${ev.valueUsd >= 0 ? "+" : ""}${formatUSD(ev.valueUsd)}`}
+      </TableCell>
+      <TableCell className="text-right font-mono tabular-nums text-xs align-top">
+        {ev.runningBalance != null ? <Money usd={ev.runningBalance} /> : "—"}
+      </TableCell>
+    </TableRow>
+  );
+}
+
+function MonthDividerRow({
+  month,
+  count,
+  netValue,
+  endBalance,
+  collapsed,
+  onToggle,
+}: {
+  month: string; // YYYY-MM
+  count: number;
+  netValue: number;
+  endBalance: number | null;
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
+  const [y, m] = month.split("-").map(Number);
+  const label = `${monthNamesPT[m - 1]} ${y}`;
+  return (
+    <TableRow
+      className="cursor-pointer bg-muted/40 hover:bg-muted/60 border-t-2 border-primary/20"
+      onClick={onToggle}
+    >
+      <TableCell colSpan={3} className="font-semibold text-sm">
+        <div className="flex items-center gap-2">
+          {collapsed ? (
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-primary" />
+          )}
+          <span>{label}</span>
+          <span className="text-xs font-normal text-muted-foreground">
+            · {count} {count === 1 ? "movimento" : "movimentos"}
+          </span>
+        </div>
+      </TableCell>
+      <TableCell className="text-right text-[10px] uppercase tracking-wider text-muted-foreground">
+        net no mês
+      </TableCell>
+      <TableCell className={cn(
+        "text-right font-mono tabular-nums text-sm",
+        netValue >= 0 ? "text-success" : "text-destructive",
+      )}>
+        {netValue >= 0 ? "+" : ""}{formatUSD(netValue)}
+      </TableCell>
+      <TableCell className="text-right font-mono tabular-nums text-xs text-muted-foreground">
+        {endBalance != null ? (
+          <span>fim: <Money usd={endBalance} /></span>
+        ) : "—"}
       </TableCell>
     </TableRow>
   );
@@ -344,14 +535,24 @@ function TypeBadge({ ev }: { ev: ExtratoEvent }) {
       case "Compra": return "text-orange-500";
       case "Venda": return (ev.profit ?? 0) >= 0 ? "text-success" : "text-destructive";
       case "Rendimento": return "text-success";
-      case "Encerramento": return "text-muted-foreground";
+      case "Encerramento": return (ev.profit ?? 0) >= 0 ? "text-success" : "text-destructive";
       case "Taxa": return "text-destructive";
       case "Aporte": return "text-success";
       case "Retirada": return "text-orange-700";
+      case "Início do fundo": return "text-primary";
+      case "Encerramento do fundo": return "text-muted-foreground";
+      case "Edição": return "text-amber-500";
     }
   })();
+  const isInfo =
+    ev.type === "Início do fundo" ||
+    ev.type === "Encerramento do fundo" ||
+    ev.type === "Edição";
   return (
-    <Badge variant={ev.type === "Encerramento" ? "secondary" : "outline"} className={cn("font-mono text-[10px]", cls)}>
+    <Badge
+      variant={isInfo || ev.type === "Encerramento" ? "secondary" : "outline"}
+      className={cn("font-mono text-[10px] whitespace-nowrap", cls)}
+    >
       {ev.type}
     </Badge>
   );

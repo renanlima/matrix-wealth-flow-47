@@ -35,7 +35,7 @@ async function fetchFundDetail(fundId: string, userId: string) {
   if (!fund || fund.client_id !== userId) return null;
 
   const [{ data: holdings }, { data: prices }, { data: fixed }] = await Promise.all([
-    supabase.from("holdings").select("id, coin_symbol, quantity, entry_price_usd, status").eq("fund_id", fundId),
+    supabase.from("holdings").select("id, coin_symbol, coin_name, quantity, entry_price_usd, status, purchase_date").eq("fund_id", fundId),
     supabase.from("coin_prices").select("symbol, price_usd"),
     supabase
       .from("fixed_income")

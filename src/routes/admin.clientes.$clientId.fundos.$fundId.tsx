@@ -25,7 +25,7 @@ import { Input } from "@/components/ui/input";
 import { MoneyInput } from "@/components/ui/money-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, ChevronLeft, DollarSign, Lock, Pencil, FileText } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, ChevronDown, DollarSign, Lock, Pencil, FileText } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Money, CryptoQty, Pct } from "@/components/Money";
 import { toast } from "sonner";
@@ -78,6 +78,16 @@ function FundDetail() {
   const [holdings, setHoldings] = useState<Holding[]>([]);
   const [realizations, setRealizations] = useState<Realization[]>([]);
   const [prices, setPrices] = useState<Map<string, number>>(new Map());
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+
+  const toggleGroup = (symbol: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(symbol)) next.delete(symbol);
+      else next.add(symbol);
+      return next;
+    });
+  };
 
   const load = useCallback(async () => {
     const [{ data: f }, { data: h }, { data: p }] = await Promise.all([
@@ -177,7 +187,7 @@ function FundDetail() {
                     <TableHead>Moeda</TableHead>
                     <TableHead className="text-right">Qtd</TableHead>
                     <TableHead className="text-right">Valor Total (USD)</TableHead>
-                    <TableHead className="text-right">Preço Médio</TableHead>
+                    <TableHead className="text-right">Preço Individual</TableHead>
                     <TableHead className="text-right">Preço atual</TableHead>
                     <TableHead className="text-right">P&L</TableHead>
                     <TableHead>Status</TableHead>
@@ -194,52 +204,148 @@ function FundDetail() {
                   )}
                   {(() => {
                     const holdingsWithSales = new Set(realizations.map((r) => r.holding_id));
-                    return holdings.map((h) => {
-                    const hasPrice = prices.has(h.coin_symbol.toUpperCase());
-                    const cur = prices.get(h.coin_symbol.toUpperCase()) ?? Number(h.entry_price_usd);
-                    const cost = Number(h.quantity) * Number(h.entry_price_usd);
-                    const market = Number(h.quantity) * cur;
-                    const pnl = market - cost;
-                    const pnlPct = cost > 0 ? ((market - cost) / cost) * 100 : 0;
-                    const locked = holdingsWithSales.has(h.id);
-                    return (
-                      <TableRow key={h.id}>
-                        <TableCell>
-                          <div className="font-mono font-semibold">{h.coin_symbol}</div>
-                          <div className="text-xs text-muted-foreground">{h.coin_name ?? "—"}</div>
-                        </TableCell>
-                        <TableCell className="text-right"><CryptoQty qty={h.quantity} /></TableCell>
-                        <TableCell className="text-right"><Money usd={market} /></TableCell>
-                        <TableCell className="text-right"><Money usd={h.entry_price_usd} /></TableCell>
-                        <TableCell className="text-right">
-                          {hasPrice ? <Money usd={cur} /> : <span className="text-muted-foreground text-xs">—</span>}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {h.status === "ativa" ? (
-                            <div className={cn("font-mono tabular-nums leading-tight", pnlClass(pnl))}>
-                              <div>{pnl >= 0 ? "+" : ""}{formatUSD(pnl)}</div>
-                              <div className="text-xs opacity-80">({formatPct(pnlPct)})</div>
+
+                    // Agrupa preservando a ordem do primeiro lote de cada símbolo
+                    const groups = new Map<string, Holding[]>();
+                    for (const h of holdings) {
+                      const sym = h.coin_symbol.toUpperCase();
+                      const arr = groups.get(sym);
+                      if (arr) arr.push(h);
+                      else groups.set(sym, [h]);
+                    }
+
+                    const renderHoldingRow = (h: Holding, opts: { indented?: boolean } = {}) => {
+                      const hasPrice = prices.has(h.coin_symbol.toUpperCase());
+                      const cur = prices.get(h.coin_symbol.toUpperCase()) ?? Number(h.entry_price_usd);
+                      const cost = Number(h.quantity) * Number(h.entry_price_usd);
+                      const market = Number(h.quantity) * cur;
+                      const pnl = market - cost;
+                      const pnlPct = cost > 0 ? ((market - cost) / cost) * 100 : 0;
+                      const locked = holdingsWithSales.has(h.id);
+                      return (
+                        <TableRow key={h.id} className={opts.indented ? "bg-muted/20" : undefined}>
+                          <TableCell>
+                            <div className={cn("flex items-center gap-1", opts.indented && "pl-8")}>
+                              <div>
+                                <div className="font-mono font-semibold text-sm">{h.coin_symbol}</div>
+                                <div className="text-[11px] text-muted-foreground">
+                                  {opts.indented ? `Lote ${formatDate(h.purchase_date)}` : (h.coin_name ?? "—")}
+                                </div>
+                              </div>
                             </div>
-                          ) : "—"}
-                        </TableCell>
-                        <TableCell>
-                          <span className={`text-xs font-mono uppercase ${h.status === "ativa" ? "text-success" : "text-muted-foreground"}`}>
-                            {h.status}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex gap-1 justify-end">
-                            {h.status === "ativa" && (
-                              <EditHoldingButton holding={h} locked={locked} onDone={load} />
-                            )}
-                            {h.status === "ativa" && (
-                              <RealizeDialog holding={h} onDone={load} />
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                    });
+                          </TableCell>
+                          <TableCell className="text-right"><CryptoQty qty={h.quantity} /></TableCell>
+                          <TableCell className="text-right"><Money usd={market} /></TableCell>
+                          <TableCell className="text-right"><Money usd={h.entry_price_usd} /></TableCell>
+                          <TableCell className="text-right">
+                            {hasPrice ? <Money usd={cur} /> : <span className="text-muted-foreground text-xs">—</span>}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {h.status === "ativa" ? (
+                              <div className={cn("font-mono tabular-nums leading-tight", pnlClass(pnl))}>
+                                <div>{pnl >= 0 ? "+" : ""}{formatUSD(pnl)}</div>
+                                <div className="text-xs opacity-80">({formatPct(pnlPct)})</div>
+                              </div>
+                            ) : "—"}
+                          </TableCell>
+                          <TableCell>
+                            <span className={`text-xs font-mono uppercase ${h.status === "ativa" ? "text-success" : "text-muted-foreground"}`}>
+                              {h.status}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex gap-1 justify-end">
+                              {h.status === "ativa" && (
+                                <EditHoldingButton holding={h} locked={locked} onDone={load} />
+                              )}
+                              {h.status === "ativa" && (
+                                <RealizeDialog holding={h} onDone={load} />
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    };
+
+                    const rows: React.ReactNode[] = [];
+                    for (const [symbol, lots] of groups) {
+                      if (lots.length === 1) {
+                        rows.push(renderHoldingRow(lots[0]));
+                        continue;
+                      }
+
+                      // Linha agrupada
+                      const totalQty = lots.reduce((s, l) => s + Number(l.quantity), 0);
+                      const totalCost = lots.reduce((s, l) => s + Number(l.quantity) * Number(l.entry_price_usd), 0);
+                      const weightedAvg = totalQty > 0 ? totalCost / totalQty : 0;
+                      const hasPrice = prices.has(symbol);
+                      const cur = prices.get(symbol) ?? weightedAvg;
+                      const totalMarket = totalQty * cur;
+                      const totalPnl = totalMarket - totalCost;
+                      const totalPnlPct = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0;
+                      const anyActive = lots.some((l) => l.status === "ativa");
+                      const expanded = expandedGroups.has(symbol);
+                      const displayName = lots[0].coin_name ?? "—";
+
+                      rows.push(
+                        <TableRow
+                          key={`group-${symbol}`}
+                          className="cursor-pointer bg-muted/40 hover:bg-muted/60 font-medium"
+                          onClick={() => toggleGroup(symbol)}
+                        >
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              {expanded ? (
+                                <ChevronDown className="h-4 w-4 text-primary" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                              )}
+                              <div>
+                                <div className="font-mono font-semibold">{symbol}</div>
+                                <div className="text-[11px] text-muted-foreground">
+                                  {displayName} · {lots.length} lotes
+                                </div>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right"><CryptoQty qty={totalQty} /></TableCell>
+                          <TableCell className="text-right"><Money usd={totalMarket} /></TableCell>
+                          <TableCell className="text-right">
+                            <div className="leading-tight">
+                              <Money usd={weightedAvg} />
+                              <div className="text-[10px] text-muted-foreground font-normal">médio ponderado</div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {hasPrice ? <Money usd={cur} /> : <span className="text-muted-foreground text-xs">—</span>}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {anyActive ? (
+                              <div className={cn("font-mono tabular-nums leading-tight", pnlClass(totalPnl))}>
+                                <div>{totalPnl >= 0 ? "+" : ""}{formatUSD(totalPnl)}</div>
+                                <div className="text-xs opacity-80">({formatPct(totalPnlPct)})</div>
+                              </div>
+                            ) : "—"}
+                          </TableCell>
+                          <TableCell>
+                            <span className={`text-xs font-mono uppercase ${anyActive ? "text-success" : "text-muted-foreground"}`}>
+                              {anyActive ? "ativa" : "encerrada"}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <span className="text-[10px] text-muted-foreground">
+                              {expanded ? "ocultar lotes" : "ver lotes"}
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      );
+
+                      if (expanded) {
+                        for (const lot of lots) rows.push(renderHoldingRow(lot, { indented: true }));
+                      }
+                    }
+
+                    return rows;
                   })()}
                 </TableBody>
               </Table>
@@ -673,7 +779,7 @@ function EditHoldingButton({ holding, locked, onDone }: { holding: Holding; lock
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Preço médio (USD) *</Label>
+              <Label>Preço individual (USD) *</Label>
               <MoneyInput
                 decimals={8}
                 value={form.entry_price_usd}
