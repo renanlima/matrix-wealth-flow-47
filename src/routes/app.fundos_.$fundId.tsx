@@ -27,7 +27,7 @@ interface FundRow {
 
 async function fetchFundDetail(fundId: string, userId: string) {
   const { data: fund, error } = await supabase
-    .from("funds")
+    .from("client_funds")
     .select("id, name, client_id, status, start_date")
     .eq("id", fundId)
     .maybeSingle();

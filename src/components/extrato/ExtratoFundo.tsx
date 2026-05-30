@@ -66,8 +66,8 @@ export function ExtratoFundo({ fundId, fundName, clientName }: Props) {
       const [{ data: h }, { data: fi }, { data: ph }, { data: fundRow }] = await Promise.all([
         supabase.from("holdings").select("*").eq("fund_id", fundId),
         supabase.from("fixed_income").select("*").eq("fund_id", fundId),
-        supabase.from("performance_history").select("*").eq("fund_id", fundId),
-        supabase.from("funds").select("id, name, start_date, end_date, status").eq("id", fundId).maybeSingle(),
+        supabase.from("client_performance_history").select("*").eq("fund_id", fundId),
+        supabase.from("client_funds").select("id, name, start_date, end_date, status").eq("id", fundId).maybeSingle(),
       ]);
       const holdings = h ?? [];
       const ids = holdings.map((x: any) => x.id);

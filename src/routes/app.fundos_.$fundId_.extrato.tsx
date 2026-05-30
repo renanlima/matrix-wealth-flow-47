@@ -20,12 +20,12 @@ function ClientExtrato() {
     if (!user) return;
     (async () => {
       const { data } = await supabase
-        .from("funds")
+        .from("client_funds")
         .select("name, client_id")
         .eq("id", fundId)
         .maybeSingle();
       if (!data) { setState({ name: "—", allowed: false }); return; }
-      setState({ name: data.name, allowed: data.client_id === user.id });
+      setState({ name: data.name ?? "—", allowed: data.client_id === user.id });
     })();
   }, [fundId, user]);
 

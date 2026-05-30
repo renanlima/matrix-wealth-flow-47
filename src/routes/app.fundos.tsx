@@ -19,12 +19,12 @@ export const Route = createFileRoute("/app/fundos")({
 
 async function fetchClientFunds(userId: string) {
   const [{ data: f }, { data: p }] = await Promise.all([
-    supabase.from("funds").select("*").eq("client_id", userId).order("created_at", { ascending: false }),
+    supabase.from("client_funds").select("*").eq("client_id", userId).order("created_at", { ascending: false }),
     supabase.from("coin_prices").select("symbol, price_usd"),
   ]);
   const funds = f ?? [];
   const prices = new Map((p ?? []).map((x) => [x.symbol.toUpperCase(), Number(x.price_usd)]));
-  const ids = funds.map((x) => x.id);
+  const ids = funds.map((x) => x.id).filter((x): x is string => !!x);
   let holdings: any[] = [];
   if (ids.length) {
     const { data: h } = await supabase.from("holdings").select("*").in("fund_id", ids);
@@ -128,7 +128,7 @@ function ClientFunds() {
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <ClientHoldingsTable holdings={fundHoldings} prices={prices} fundId={f.id} />
+              <ClientHoldingsTable holdings={fundHoldings} prices={prices} fundId={f.id ?? undefined} />
             </CardContent>
           </Card>
         );

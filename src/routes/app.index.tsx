@@ -24,7 +24,7 @@ interface ClientDashData {
 
 async function fetchClientDashboard(userId: string): Promise<ClientDashData> {
   const [{ data: funds }, { data: holdings }, { data: prices }, { data: dep }, { data: wd }, { data: real }] = await Promise.all([
-    supabase.from("funds").select("id, name").eq("client_id", userId),
+    supabase.from("client_funds").select("id, name").eq("client_id", userId),
     supabase.from("holdings").select("id, coin_symbol, quantity, entry_price_usd, fund_id, status").eq("status", "ativa"),
     supabase.from("coin_prices").select("symbol, price_usd, percent_change_24h, updated_at"),
     supabase.from("deposits").select("amount_usd"),
